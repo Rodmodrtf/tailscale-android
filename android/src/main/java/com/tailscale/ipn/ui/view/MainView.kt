@@ -155,11 +155,16 @@ fun MainView(
         val isToggleInProgress by viewModel.isToggleInProgress.collectAsState()
         val showKeyExpiry by viewModel.showExpiry.collectAsState()
 
-        val hideHeader = (isAndroidTV() && state == Ipn.State.NeedsLogin)
-        ListItem(
-            colors = MaterialTheme.colorScheme.surfaceContainerListItem,
-            leadingContent = {
-              if (!hideHeader) {
+        if (isAndroidTV()) {
+          TVDashboardView(
+              loginAtUrl = loginAtUrl,
+              navigation = navigation,
+              viewModel = viewModel,
+          )
+        } else {
+          ListItem(
+              colors = MaterialTheme.colorScheme.surfaceContainerListItem,
+              leadingContent = {
                 TintedSwitch(
                     checked = isOn,
                     enabled =
@@ -167,20 +172,18 @@ fun MainView(
                             !isToggleInProgress, // Disable switch if toggle is in progress
                     onCheckedChange = { desiredState -> viewModel.toggleVpn(desiredState) },
                 )
-              }
-            },
-            headlineContent = {
-              user?.NetworkProfile?.tailnetNameForDisplay()?.let { domain ->
-                AutoResizingText(
-                    text = domain,
-                    style = MaterialTheme.typography.titleMedium.short,
-                    minFontSize = MaterialTheme.typography.minTextSize,
-                    overflow = TextOverflow.Ellipsis,
-                )
-              }
-            },
-            supportingContent = {
-              if (!hideHeader) {
+              },
+              headlineContent = {
+                user?.NetworkProfile?.tailnetNameForDisplay()?.let { domain ->
+                  AutoResizingText(
+                      text = domain,
+                      style = MaterialTheme.typography.titleMedium.short,
+                      minFontSize = MaterialTheme.typography.minTextSize,
+                      overflow = TextOverflow.Ellipsis,
+                  )
+                }
+              },
+              supportingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                   Text(text = stateStr, style = MaterialTheme.typography.bodyMedium.short)
                   healthIcon?.let {
@@ -198,66 +201,66 @@ fun MainView(
                     }
                   }
                 }
-              }
-            },
-            trailingContent = {
-              Box(modifier = Modifier.padding(8.dp), contentAlignment = Alignment.CenterEnd) {
-                when (user) {
-                  null -> SettingsButton { navigation.onNavigateToSettings() }
-                  else -> {
-                    Avatar(
-                        profile = user,
-                        size = 36,
-                        { navigation.onNavigateToSettings() },
-                        isFocusable = true,
-                    )
+              },
+              trailingContent = {
+                Box(modifier = Modifier.padding(8.dp), contentAlignment = Alignment.CenterEnd) {
+                  when (user) {
+                    null -> SettingsButton { navigation.onNavigateToSettings() }
+                    else -> {
+                      Avatar(
+                          profile = user,
+                          size = 36,
+                          { navigation.onNavigateToSettings() },
+                          isFocusable = true,
+                      )
+                    }
                   }
                 }
-              }
-            },
-        )
-        when (state) {
-          Ipn.State.Running -> {
-            viewModel.maybeRequestVpnPermission()
-            LaunchVpnPermissionIfNeeded(viewModel)
-            PromptForMissingPermissions(viewModel)
+              },
+          )
+          when (state) {
+            Ipn.State.Running -> {
+              viewModel.maybeRequestVpnPermission()
+              LaunchVpnPermissionIfNeeded(viewModel)
+              PromptForMissingPermissions(viewModel)
 
-            if (showKeyExpiry) {
-              netmap?.let { ExpiryNotification(netmap = it, action = { viewModel.login() }) }
-            }
-            if (showExitNodePicker.value == ShowHide.Show) {
-              ExitNodeStatus(
-                  navAction = navigation.onNavigateToExitNodes,
+              if (showKeyExpiry) {
+                netmap?.let { ExpiryNotification(netmap = it, action = { viewModel.login() }) }
+              }
+              if (showExitNodePicker.value == ShowHide.Show) {
+                ExitNodeStatus(
+                    navAction = navigation.onNavigateToExitNodes,
+                    viewModel = viewModel,
+                )
+              }
+              val pending by viewModel.pendingTaildrop.pendingItems.collectAsState()
+              if (pending.isNotEmpty()) {
+                TaildropBannerView(viewModel = viewModel.pendingTaildrop)
+              }
+              PeerList(
                   viewModel = viewModel,
+                  onNavigateToPeerDetails = navigation.onNavigateToPeerDetails,
+                  onSearchBarClick = navigation.onNavigateToSearch,
+                  onSearch = { viewModel.searchPeers(it) },
               )
             }
-            val pending by viewModel.pendingTaildrop.pendingItems.collectAsState()
-            if (pending.isNotEmpty()) {
-              TaildropBannerView(viewModel = viewModel.pendingTaildrop)
+            Ipn.State.NoState,
+            Ipn.State.Starting -> StartingView()
+            else -> {
+              ConnectView(
+                  state,
+                  isPrepared,
+                  // If Tailscale is stopping, don't automatically restart; wait for user to take
+                  // action (eg, if the user connected to another VPN).
+                  state != Ipn.State.Stopping,
+                  user,
+                  { viewModel.toggleVpn(desiredState = !isOn) },
+                  { viewModel.login() },
+                  loginAtUrl,
+                  netmap?.SelfNode,
+                  { viewModel.showVPNPermissionLauncherIfUnauthorized() },
+              )
             }
-            PeerList(
-                viewModel = viewModel,
-                onNavigateToPeerDetails = navigation.onNavigateToPeerDetails,
-                onSearchBarClick = navigation.onNavigateToSearch,
-                onSearch = { viewModel.searchPeers(it) },
-            )
-          }
-          Ipn.State.NoState,
-          Ipn.State.Starting -> StartingView()
-          else -> {
-            ConnectView(
-                state,
-                isPrepared,
-                // If Tailscale is stopping, don't automatically restart; wait for user to take
-                // action (eg, if the user connected to another VPN).
-                state != Ipn.State.Stopping,
-                user,
-                { viewModel.toggleVpn(desiredState = !isOn) },
-                { viewModel.login() },
-                loginAtUrl,
-                netmap?.SelfNode,
-                { viewModel.showVPNPermissionLauncherIfUnauthorized() },
-            )
           }
         }
       }
@@ -305,7 +308,7 @@ private fun TaildropDirectoryPickerPromptPreview() {
 }
 
 @Composable
-private fun LaunchVpnPermissionIfNeeded(viewModel: MainViewModel) {
+fun LaunchVpnPermissionIfNeeded(viewModel: MainViewModel) {
   val lifecycleOwner = LocalLifecycleOwner.current
   val shouldRequest by viewModel.requestVpnPermission.collectAsState()
   LaunchedEffect(shouldRequest) {

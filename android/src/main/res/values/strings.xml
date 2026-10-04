@@ -82,6 +82,20 @@
     <string name="disable">Disable</string>
     <string name="enable">Enable</string>
     <string name="stop">Stop</string>
+    <string name="tv_dashboard_overview">Network overview</string>
+    <string name="tv_dashboard_online_devices">Online devices</string>
+    <string name="tv_dashboard_devices">Devices</string>
+    <string name="tv_dashboard_no_devices">No devices are visible yet.</string>
+    <string name="tv_dashboard_exit_nodes">Exit nodes</string>
+    <string name="tv_dashboard_no_exit_nodes">No exit nodes are available.</string>
+    <string name="tv_dashboard_home_controls">Home TV controls</string>
+    <string name="tv_dashboard_health_needs_attention">Needs attention</string>
+    <string name="tv_start_on_boot">Start on boot</string>
+    <string name="tv_start_on_boot_subtitle">Start Tailscale after this TV restarts if VPN permission is already granted.</string>
+    <string name="tv_always_on_vpn">Always-on VPN</string>
+    <string name="tv_always_on_vpn_subtitle">Open Android VPN settings to make Tailscale always-on for this TV.</string>
+    <string name="tv_settings_tile">App settings</string>
+    <string name="tv_settings_tile_subtitle">DNS, split tunneling, Taildrop, about, and account options.</string>
 
     <!-- Strings for peer details -->
     <string name="os">OS</string>
