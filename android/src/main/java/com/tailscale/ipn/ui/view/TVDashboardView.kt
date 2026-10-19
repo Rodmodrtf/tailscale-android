@@ -273,7 +273,7 @@ fun TVDashboardView(
           if (showAlwaysOnHelp) {
             AlwaysOnHelp(context)
           } else {
-            DevicesPane(state, peers, selectedExitNodeId, navigation)
+            DevicesPane(state, peers, self != null, connected, selectedExitNodeId, navigation)
           }
         }
       }
@@ -285,9 +285,14 @@ fun TVDashboardView(
 private fun DevicesPane(
     state: Ipn.State,
     peers: List<Tailcfg.Node>,
+    hasSelf: Boolean,
+    selfOnline: Boolean,
     selectedExitNodeId: String?,
     navigation: MainViewNavigation,
 ) {
+  // Count this TV too, as the admin console does.
+  val selfCount = if (hasSelf) 1 else 0
+  val onlineCount = peers.count { it.Online == true } + if (hasSelf && selfOnline) 1 else 0
   Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
     Column(modifier = Modifier.weight(1f)) {
       Text(
@@ -300,8 +305,8 @@ private fun DevicesPane(
             text =
                 stringResource(
                     R.string.tv_dashboard_device_count,
-                    peers.count { it.Online == true },
-                    peers.size,
+                    onlineCount,
+                    peers.size + selfCount,
                 ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

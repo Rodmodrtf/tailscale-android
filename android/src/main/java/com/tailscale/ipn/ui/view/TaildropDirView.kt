@@ -28,6 +28,7 @@ import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.friendlyDirName
 import com.tailscale.ipn.ui.util.launchDirectoryPicker
 import com.tailscale.ipn.ui.viewModel.PermissionsViewModel
+import com.tailscale.ipn.util.ShareFileHelper
 import com.tailscale.ipn.util.TSLog
 
 @Composable
@@ -84,7 +85,11 @@ fun TaildropDirView(
                   }
                 } else {
                   Text(
-                      text = stringResource(R.string.no_dir_picker),
+                      text =
+                          stringResource(
+                              R.string.no_dir_picker,
+                              ShareFileHelper.plainDirDisplayPath() ?: "Taildrop",
+                          ),
                       style = MaterialTheme.typography.bodyMedium,
                       modifier = Modifier.padding(top = 12.dp),
                   )

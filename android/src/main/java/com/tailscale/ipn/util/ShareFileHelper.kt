@@ -2,8 +2,13 @@
 // SPDX-License-Identifier: BSD-3-Clause
 package com.tailscale.ipn.util
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
@@ -84,12 +89,43 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
 
   /**
    * Plain folder for received files when the device has no folder picker (e.g. Android TV), so no
-   * SAF directory can ever be chosen. Null when a SAF directory is set or can be chosen.
+   * SAF directory can ever be chosen: Download/Taildrop, or the app's own folder if Downloads isn't
+   * writable. Null when a SAF directory is set or can be chosen.
    */
   private fun plainDir(): File? {
     val ctx = appContext ?: return null
     if (hasValidTaildropDir() || DirectoryPicker.isAvailable(ctx)) return null
+    downloadsDir(ctx)?.let {
+      return it
+    }
     return File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, PLAIN_DIR_NAME).apply { mkdirs() }
+  }
+
+  /**
+   * Download/Taildrop. Writable with WRITE_EXTERNAL_STORAGE up to Android 10 (with
+   * requestLegacyExternalStorage on 10), and without any permission for the app's own files from
+   * Android 11.
+   */
+  private fun downloadsDir(ctx: Context): File? {
+    val allowed =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ||
+            ctx.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_GRANTED
+    if (!allowed) return null
+    @Suppress("DEPRECATION")
+    val dir =
+        File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            PLAIN_DIR_NAME,
+        )
+    return dir.takeIf { (it.isDirectory || it.mkdirs()) && it.canWrite() }
+  }
+
+  /** Human-readable location of received files on devices without a folder picker. */
+  fun plainDirDisplayPath(): String? {
+    val dir = plainDir() ?: return null
+    @Suppress("DEPRECATION") val root = Environment.getExternalStorageDirectory().absolutePath
+    return dir.absolutePath.removePrefix("$root/")
   }
 
   private fun plainFile(dir: File, name: String): File {
@@ -259,6 +295,8 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
     dir.listFiles()?.forEach {
       if (it.name.endsWith(".partial") && it.name.contains(targetName)) it.delete()
     }
+    // Let file browsers and the media library see it right away.
+    MediaScannerConnection.scanFile(ctx, arrayOf(dest.absolutePath), null, null)
     val uri = Uri.fromFile(dest).toString()
     maybeNotifyInlineShare(ctx, uri, dest.name)
     return uri
