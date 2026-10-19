@@ -3,15 +3,19 @@
 
 package com.tailscale.ipn.ui.theme
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material.ripple.RippleAlpha
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RippleConfiguration
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
@@ -19,6 +23,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -27,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.tailscale.ipn.ui.util.AndroidTVUtil
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppTheme(
     // TVs are viewed in dim rooms and Android TV's own UI is dark, so always use dark there.
@@ -59,8 +65,32 @@ fun AppTheme(
     onDispose {}
   }
 
-  MaterialTheme(colorScheme = colors, typography = typography, content = content)
+  MaterialTheme(colorScheme = colors, typography = typography) {
+    if (AndroidTVUtil.isAndroidTV()) {
+      CompositionLocalProvider(
+          LocalIndication provides TvFocusIndication,
+          // Material buttons draw their own ripple; make its focused state clearly visible too.
+          LocalRippleConfiguration provides TvRippleConfiguration,
+          content = content,
+      )
+    } else {
+      content()
+    }
+  }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+private val TvRippleConfiguration =
+    RippleConfiguration(
+        color = Color.White,
+        rippleAlpha =
+            RippleAlpha(
+                draggedAlpha = 0.16f,
+                focusedAlpha = 0.32f,
+                hoveredAlpha = 0.16f,
+                pressedAlpha = 0.24f,
+            ),
+    )
 
 private val LightColors =
     lightColorScheme(

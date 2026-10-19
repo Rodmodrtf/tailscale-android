@@ -35,7 +35,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -68,6 +70,8 @@ import com.tailscale.ipn.ui.model.Tailcfg
 import com.tailscale.ipn.ui.viewModel.IpnViewModel.NodeState
 import com.tailscale.ipn.ui.viewModel.MainViewModel
 import java.net.Inet4Address
+
+private const val FOCUS_PRIMARY = "primary"
 
 private val Green = Color(0xFF1CA672)
 private val Gray = Color(0xFF706E6D)
@@ -137,8 +141,24 @@ fun TVDashboardView(
   val alwaysOn = IPNService.alwaysOn ?: alwaysOnConfigured
   val connected = isOn && state == Ipn.State.Running
 
-  val primaryFocus = remember { FocusRequester() }
-  LaunchedEffect(Unit) { runCatching { primaryFocus.requestFocus() } }
+  // Coming back from a sub-screen, return focus to the item that opened it rather than the
+  // Connect/Disconnect button, where a single OK press would disconnect.
+  var lastFocusKey by rememberSaveable { mutableStateOf(FOCUS_PRIMARY) }
+  val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+  val focusFor: (String) -> FocusRequester = { key ->
+    focusRequesters.getOrPut(key) { FocusRequester() }
+  }
+  val opening: (String, () -> Unit) -> () -> Unit = { key, action ->
+    {
+      lastFocusKey = key
+      action()
+    }
+  }
+  LaunchedEffect(Unit) {
+    withFrameNanos {} // let the device grid lay out first
+    runCatching { focusFor(lastFocusKey).requestFocus() }
+        .onFailure { runCatching { focusFor(FOCUS_PRIMARY).requestFocus() } }
+  }
 
   MaterialTheme(colorScheme = TvColors) {
     Surface(
@@ -177,7 +197,7 @@ fun TVDashboardView(
           }
           Spacer(Modifier.height(14.dp))
 
-          val buttonModifier = Modifier.focusRequester(primaryFocus)
+          val buttonModifier = Modifier.focusRequester(focusFor(FOCUS_PRIMARY))
           val toggleEnabled = !disableToggle.value && !isToggleInProgress
           when {
             state == Ipn.State.NeedsLogin ->
@@ -249,7 +269,8 @@ fun TVDashboardView(
                     },
                 value = exitNodeName,
                 valueColor = if (exitNodeOffline) Red else null,
-                onClick = navigation.onNavigateToExitNodes,
+                modifier = Modifier.focusRequester(focusFor("exit-node")),
+                onClick = opening("exit-node", navigation.onNavigateToExitNodes),
             )
             SettingItem(
                 label = stringResource(R.string.tv_dashboard_health),
@@ -259,11 +280,13 @@ fun TVDashboardView(
                         else R.string.tv_dashboard_health_ok
                     ),
                 valueColor = if (healthIcon != null) Red else Green,
-                onClick = navigation.onNavigateToHealth,
+                modifier = Modifier.focusRequester(focusFor("health")),
+                onClick = opening("health", navigation.onNavigateToHealth),
             )
             SettingItem(
                 label = stringResource(R.string.tv_settings_tile),
-                onClick = navigation.onNavigateToSettings,
+                modifier = Modifier.focusRequester(focusFor("settings")),
+                onClick = opening("settings", navigation.onNavigateToSettings),
             )
           }
         }
@@ -273,7 +296,16 @@ fun TVDashboardView(
           if (showAlwaysOnHelp) {
             AlwaysOnHelp(context)
           } else {
-            DevicesPane(state, peers, self != null, connected, selectedExitNodeId, navigation)
+            DevicesPane(
+                state,
+                peers,
+                self != null,
+                connected,
+                selectedExitNodeId,
+                navigation,
+                focusFor,
+                opening,
+            )
           }
         }
       }
@@ -289,6 +321,8 @@ private fun DevicesPane(
     selfOnline: Boolean,
     selectedExitNodeId: String?,
     navigation: MainViewNavigation,
+    focusFor: (String) -> FocusRequester,
+    opening: (String, () -> Unit) -> () -> Unit,
 ) {
   // Count this TV too, as the admin console does.
   val selfCount = if (hasSelf) 1 else 0
@@ -314,7 +348,10 @@ private fun DevicesPane(
       }
     }
     if (peers.isNotEmpty()) {
-      Button(onClick = navigation.onNavigateToSearch) {
+      Button(
+          onClick = opening("search", navigation.onNavigateToSearch),
+          modifier = Modifier.focusRequester(focusFor("search")),
+      ) {
         Text(stringResource(R.string.search))
       }
     }
@@ -339,7 +376,9 @@ private fun DevicesPane(
             DeviceCard(
                 peer = peer,
                 isExitNode = peer.StableID == selectedExitNodeId,
-                onClick = { navigation.onNavigateToPeerDetails(peer) },
+                modifier = Modifier.focusRequester(focusFor("peer:${peer.StableID}")),
+                onClick =
+                    opening("peer:${peer.StableID}") { navigation.onNavigateToPeerDetails(peer) },
             )
           }
         }
@@ -352,12 +391,13 @@ private fun SettingItem(
     value: String? = null,
     valueColor: Color? = null,
     trailing: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
   ListItem(
       selected = false,
       onClick = onClick,
-      modifier = Modifier.height(48.dp),
+      modifier = modifier.height(48.dp),
       headlineContent = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
       trailingContent =
           trailing
@@ -375,11 +415,16 @@ private fun SettingItem(
 }
 
 @Composable
-private fun DeviceCard(peer: Tailcfg.Node, isExitNode: Boolean, onClick: () -> Unit) {
+private fun DeviceCard(
+    peer: Tailcfg.Node,
+    isExitNode: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
   val online = peer.Online == true
   Card(
       onClick = onClick,
-      modifier = Modifier.fillMaxWidth().height(72.dp),
+      modifier = modifier.fillMaxWidth().height(72.dp),
       shape = CardDefaults.shape(RoundedCornerShape(12.dp)),
       scale = CardDefaults.scale(focusedScale = 1.05f),
       colors =

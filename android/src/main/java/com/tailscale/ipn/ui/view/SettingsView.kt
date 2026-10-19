@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
@@ -245,7 +246,12 @@ object Setting {
       enabled: Boolean = true,
       onToggle: (Boolean) -> Unit = {},
   ) {
+    // On TV the whole row is the focus target so it's easy to reach and toggle with the D-pad.
+    val tv = isAndroidTV()
     ListItem(
+        modifier =
+            if (tv) Modifier.toggleable(value = isOn, enabled = enabled, onValueChange = onToggle)
+            else Modifier,
         colors = MaterialTheme.colorScheme.listItem,
         headlineContent = {
           Text(
@@ -264,7 +270,11 @@ object Setting {
               }
             },
         trailingContent = {
-          TintedSwitch(checked = isOn, onCheckedChange = onToggle, enabled = enabled)
+          TintedSwitch(
+              checked = isOn,
+              onCheckedChange = if (tv) null else onToggle,
+              enabled = enabled,
+          )
         },
     )
   }
