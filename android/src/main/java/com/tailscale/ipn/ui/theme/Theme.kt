@@ -25,9 +25,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import com.tailscale.ipn.ui.util.AndroidTVUtil
 
 @Composable
-fun AppTheme(useDarkTheme: Boolean = isSystemInDarkTheme(), content: @Composable() () -> Unit) {
+fun AppTheme(
+    // TVs are viewed in dim rooms and Android TV's own UI is dark, so always use dark there.
+    useDarkTheme: Boolean = isSystemInDarkTheme() || AndroidTVUtil.isAndroidTV(),
+    content: @Composable() () -> Unit,
+) {
   val colors =
       if (useDarkTheme) {
         DarkColors

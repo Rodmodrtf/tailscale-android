@@ -142,6 +142,7 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
         getString(R.string.key_expiry_channel_description),
         NotificationManagerCompat.IMPORTANCE_DEFAULT,
     )
+    VpnKeepAlive.init(this)
   }
 
   override fun onTerminate() {

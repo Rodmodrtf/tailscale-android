@@ -82,20 +82,21 @@
     <string name="disable">Disable</string>
     <string name="enable">Enable</string>
     <string name="stop">Stop</string>
-    <string name="tv_dashboard_overview">Network overview</string>
-    <string name="tv_dashboard_online_devices">Online devices</string>
     <string name="tv_dashboard_devices">Devices</string>
+    <string name="tv_dashboard_device_count">%1$d of %2$d online</string>
     <string name="tv_dashboard_no_devices">No devices are visible yet.</string>
-    <string name="tv_dashboard_exit_nodes">Exit nodes</string>
-    <string name="tv_dashboard_no_exit_nodes">No exit nodes are available.</string>
-    <string name="tv_dashboard_home_controls">Home TV controls</string>
+    <string name="tv_dashboard_sign_in_hint">Log in to see the devices on your tailnet.</string>
+    <string name="tv_dashboard_this_device">This TV</string>
+    <string name="tv_dashboard_health_ok">Healthy</string>
     <string name="tv_dashboard_health_needs_attention">Needs attention</string>
-    <string name="tv_start_on_boot">Start on boot</string>
-    <string name="tv_start_on_boot_subtitle">Start Tailscale after this TV restarts if VPN permission is already granted.</string>
+    <string name="tv_dashboard_exit_node_badge">Exit node</string>
+    <string name="tv_dashboard_health">Health</string>
+    <string name="tv_always_connected">Always connected</string>
     <string name="tv_always_on_vpn">Always-on VPN</string>
-    <string name="tv_always_on_vpn_subtitle">Open Android VPN settings to make Tailscale always-on for this TV.</string>
-    <string name="tv_settings_tile">App settings</string>
-    <string name="tv_settings_tile_subtitle">DNS, split tunneling, Taildrop, about, and account options.</string>
+    <string name="tv_always_on_unknown">Set up</string>
+    <string name="tv_always_on_title">Make Tailscale the Always-on VPN</string>
+    <string name="tv_always_on_body">Android restarts an Always-on VPN by itself whenever it stops. This TV has no VPN settings screen, so set it once from a computer on the same network with ADB:\n\nadb connect %1$s\nadb shell settings put secure always_on_vpn_app com.tailscale.ipn\nadb reboot</string>
+    <string name="tv_settings_tile">Settings</string>
 
     <!-- Strings for peer details -->
     <string name="os">OS</string>

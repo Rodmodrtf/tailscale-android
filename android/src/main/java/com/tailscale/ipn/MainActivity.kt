@@ -286,7 +286,8 @@ class MainActivity : ComponentActivity() {
       }
 
       AppTheme {
-        Surface(color = MaterialTheme.colorScheme.inverseSurface) { // Background for the letterbox
+        // Background behind the TV overscan margins
+        Surface(color = MaterialTheme.colorScheme.surface) {
           Surface(modifier = Modifier.universalFit()) { // Letterbox for AndroidTV
             NavHost(
                 navController = navController,
