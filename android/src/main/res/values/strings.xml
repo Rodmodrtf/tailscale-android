@@ -95,7 +95,13 @@
     <string name="tv_always_on_vpn">Always-on VPN</string>
     <string name="tv_always_on_unknown">Set up</string>
     <string name="tv_always_on_title">Make Tailscale the Always-on VPN</string>
-    <string name="tv_always_on_body">Android restarts an Always-on VPN by itself whenever it stops. This TV has no VPN settings screen, so set it once from a computer on the same network with ADB:\n\nadb connect %1$s\nadb shell settings put secure always_on_vpn_app com.tailscale.ipn\nadb reboot</string>
+    <string name="tv_always_on_body">Android restarts an Always-on VPN by itself whenever it stops. This TV has no VPN settings screen, so allow Tailscale to change the setting once, from a computer on the same network:
+
+adb connect %1$s
+adb shell pm grant com.tailscale.ipn android.permission.WRITE_SECURE_SETTINGS
+
+Then select Always-on VPN again.</string>
+    <string name="tv_always_on_after_restart">On after restart</string>
     <string name="tv_settings_tile">Settings</string>
 
     <!-- Strings for peer details -->

@@ -223,6 +223,9 @@ $(GOBIN)/gomobile: $(GOBIN)/gobind go.mod go.sum go.toolchain.rev | $(GOBIN)
 $(GOBIN)/gobind: go.mod go.sum go.toolchain.rev
 	./tool/go install golang.org/x/mobile/cmd/gobind
 
+# Override to build fewer ABIs, e.g. GOMOBILE_TARGET=android/arm,android/arm64 for TV boxes.
+GOMOBILE_TARGET ?= android
+
 .PHONY: build-unstripped-aar
 build-unstripped-aar: tailscale.version $(GOBIN)/gomobile
 	@echo "Running gomobile bind to generate unstripped AAR..."
@@ -231,7 +234,7 @@ build-unstripped-aar: tailscale.version $(GOBIN)/gomobile
 	rm -f $(ABS_UNSTRIPPED_AAR)
 	# The -linkmode=external -extldflags=-Wl,-z,max-page-size=16384 is specific to NDK 23
 	# to support 16kb page sizes.  Your mileage may vary with other NDK versions.
-	$(GOBIN)/gomobile bind -target android -androidapi 26 \
+	$(GOBIN)/gomobile bind -target $(GOMOBILE_TARGET) -androidapi 26 \
 		-tags "$$(./build-tags.sh) $(GOMOBILE_BUILD_TAGS)" \
 		-ldflags "-linkmode=external -extldflags=-Wl,-z,max-page-size=16384 $$(./version-ldflags.sh)" \
 		-o $(ABS_UNSTRIPPED_AAR) ./libtailscale || { echo "gomobile bind failed"; exit 1; }

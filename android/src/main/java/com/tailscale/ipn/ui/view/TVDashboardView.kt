@@ -58,6 +58,7 @@ import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Switch
 import androidx.tv.material3.Text
 import androidx.tv.material3.darkColorScheme
+import com.tailscale.ipn.AlwaysOnVpn
 import com.tailscale.ipn.IPNService
 import com.tailscale.ipn.R
 import com.tailscale.ipn.TVSettings
@@ -130,7 +131,10 @@ fun TVDashboardView(
       selectedExitNodeId?.let { id -> peers.find { it.StableID == id }?.exitNodeName }
           ?: stringResource(R.string.none)
   val exitNodeOffline = nodeState == NodeState.OFFLINE_ENABLED || nodeState == NodeState.OFFLINE_MDM
-  val alwaysOn = IPNService.alwaysOn
+  // IPNService.alwaysOn is what Android is applying now (API 29+); the setting is what applies
+  // after the next restart.
+  var alwaysOnConfigured by remember { mutableStateOf(AlwaysOnVpn.isConfigured(context)) }
+  val alwaysOn = IPNService.alwaysOn ?: alwaysOnConfigured
   val connected = isOn && state == Ipn.State.Running
 
   val primaryFocus = remember { FocusRequester() }
@@ -216,14 +220,27 @@ fun TVDashboardView(
             SettingItem(
                 label = stringResource(R.string.tv_always_on_vpn),
                 value =
-                    when (alwaysOn) {
-                      true -> stringResource(R.string.on)
-                      false -> stringResource(R.string.off)
-                      null -> stringResource(R.string.tv_always_on_unknown)
+                    when {
+                      alwaysOnConfigured == true && alwaysOn != true ->
+                          stringResource(R.string.tv_always_on_after_restart)
+                      alwaysOn == true -> stringResource(R.string.on)
+                      alwaysOn == false && AlwaysOnVpn.canConfigure(context) ->
+                          stringResource(R.string.off)
+                      else -> stringResource(R.string.tv_always_on_unknown)
                     },
                 valueColor = if (alwaysOn == true) Green else null,
             ) {
-              if (!openVpnSettings(context)) showAlwaysOnHelp = !showAlwaysOnHelp
+              when {
+                AlwaysOnVpn.canConfigure(context) -> {
+                  val enable = alwaysOnConfigured != true
+                  if (AlwaysOnVpn.setConfigured(context, enable)) {
+                    alwaysOnConfigured = AlwaysOnVpn.isConfigured(context)
+                  }
+                  showAlwaysOnHelp = false
+                }
+                openVpnSettings(context) -> {}
+                else -> showAlwaysOnHelp = !showAlwaysOnHelp
+              }
             }
             SettingItem(
                 label =

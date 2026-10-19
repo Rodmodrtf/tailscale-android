@@ -3,6 +3,7 @@
 
 package com.tailscale.ipn
 
+import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -11,10 +12,13 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.VpnService
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.tailscale.ipn.ui.util.AndroidTVUtil
 import com.tailscale.ipn.util.TSLog
 import java.util.concurrent.TimeUnit
@@ -27,6 +31,8 @@ import java.util.concurrent.TimeUnit
 object VpnKeepAlive {
   private const val TAG = "VpnKeepAlive"
   private const val PERIODIC_WORK = "vpn-keep-alive"
+  private const val DELAYED_CHECK_WORK = "vpn-keep-alive-check"
+  private const val CHECK_DELAY_SECONDS = 30L
 
   /** Registers wake/network listeners for the lifetime of the process. Called from App.onCreate. */
   fun init(app: App) {
@@ -42,7 +48,7 @@ object VpnKeepAlive {
     app.registerReceiver(
         object : BroadcastReceiver() {
           override fun onReceive(context: Context, intent: Intent) {
-            ensureRunning(context, intent.action ?: "wake")
+            requestCheck(context, intent.action ?: "wake")
           }
         },
         filter,
@@ -53,7 +59,7 @@ object VpnKeepAlive {
       cm.registerDefaultNetworkCallback(
           object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-              ensureRunning(app, "network available")
+              requestCheck(app, "network available")
             }
           }
       )
@@ -73,13 +79,42 @@ object VpnKeepAlive {
   }
 
   /**
+   * Checks the VPN after a delay instead of immediately. Events fire while the process is still
+   * starting (often because Android itself is starting IPNService for Always-on VPN); starting it a
+   * second time then makes Android kill the slow-starting service. Repeated events within the delay
+   * collapse into one check.
+   */
+  fun requestCheck(context: Context, reason: String, delaySeconds: Long = CHECK_DELAY_SECONDS) {
+    val request =
+        OneTimeWorkRequestBuilder<KeepAliveWorker>()
+            .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
+            .setInputData(workDataOf(KeepAliveWorker.KEY_REASON to reason))
+            .build()
+    WorkManager.getInstance(context)
+        .enqueueUniqueWork(DELAYED_CHECK_WORK, ExistingWorkPolicy.KEEP, request)
+  }
+
+  /** Whether IPNService is running or starting, including when Android started it itself. */
+  private fun serviceRunning(context: Context): Boolean {
+    if (IPNService.isActive) return true
+    val am = context.getSystemService(ActivityManager::class.java) ?: return false
+    // getRunningServices is deprecated but still returns the caller's own services.
+    @Suppress("DEPRECATION")
+    return am.getRunningServices(Int.MAX_VALUE).any {
+      it.service.packageName == context.packageName &&
+          it.service.className == IPNService::class.java.name &&
+          it.started
+    }
+  }
+
+  /**
    * Starts the VPN if keep-alive is enabled, the user didn't disconnect on purpose, the service
    * isn't already running and VPN permission is still granted (it is lost if another VPN app took
    * over, and we must not fight it).
    */
   fun ensureRunning(context: Context, reason: String) {
     if (!TVSettings.startOnBoot(context) || TVSettings.userStopped(context)) return
-    if (IPNService.isActive) return
+    if (serviceRunning(context)) return
     val app = UninitializedApp.get()
     if (!app.isAbleToStartVPN()) return
     if (VpnService.prepare(context) != null) {
@@ -93,7 +128,14 @@ object VpnKeepAlive {
 
 class KeepAliveWorker(appContext: Context, params: WorkerParameters) : Worker(appContext, params) {
   override fun doWork(): Result {
-    VpnKeepAlive.ensureRunning(applicationContext, "periodic check")
+    VpnKeepAlive.ensureRunning(
+        applicationContext,
+        inputData.getString(KEY_REASON) ?: "periodic check",
+    )
     return Result.success()
+  }
+
+  companion object {
+    const val KEY_REASON = "reason"
   }
 }
