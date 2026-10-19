@@ -10,12 +10,15 @@ import androidx.documentfile.provider.DocumentFile
 import com.tailscale.ipn.TaildropDirectoryStore
 import com.tailscale.ipn.ui.notifier.Notifier
 import com.tailscale.ipn.ui.notifier.TaildropNotifier
+import com.tailscale.ipn.ui.util.DirectoryPicker
 import com.tailscale.ipn.ui.util.InputStreamAdapter
 import com.tailscale.ipn.ui.util.OutputStreamAdapter
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStream
+import java.io.RandomAccessFile
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CompletableDeferred
@@ -32,6 +35,7 @@ data class SafFile(val fd: Int, val uri: String)
 object ShareFileHelper : libtailscale.ShareFileHelper {
   // Cap on reading a received file back to decode it for the notification preview.
   private const val MAX_INLINE_SHARE_BYTES = 64 * 1024
+  const val PLAIN_DIR_NAME = "Taildrop"
 
   private var appContext: Context? = null
   private var app: libtailscale.Application? = null
@@ -76,6 +80,24 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
     }
 
     return true
+  }
+
+  /**
+   * Plain folder for received files when the device has no folder picker (e.g. Android TV), so no
+   * SAF directory can ever be chosen. Null when a SAF directory is set or can be chosen.
+   */
+  private fun plainDir(): File? {
+    val ctx = appContext ?: return null
+    if (hasValidTaildropDir() || DirectoryPicker.isAvailable(ctx)) return null
+    return File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, PLAIN_DIR_NAME).apply { mkdirs() }
+  }
+
+  private fun plainFile(dir: File, name: String): File {
+    val file = File(dir, name)
+    if (file.canonicalFile.parentFile != dir.canonicalFile) {
+      throw IOException("invalid file name: $name")
+    }
+    return file
   }
 
   private suspend fun waitUntilTaildropDirReady() {
@@ -128,6 +150,13 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
 
   @Throws(IOException::class)
   override fun openFileWriter(fileName: String, offset: Long): libtailscale.OutputStream {
+    plainDir()?.let { dir ->
+      val file = plainFile(dir, fileName)
+      // Resume at offset: drop anything written past it, then append.
+      RandomAccessFile(file, "rw").use { it.setLength(offset) }
+      currentUri[fileName] = Uri.fromFile(file).toString()
+      return OutputStreamAdapter(FileOutputStream(file, true))
+    }
     runBlocking { waitUntilTaildropDirReady() }
     val (uri, stream) = openWriterFD(fileName, offset)
     currentUri[fileName] = uri
@@ -136,6 +165,11 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
 
   @Throws(IOException::class)
   override fun getFileURI(fileName: String): String {
+    plainDir()?.let { dir ->
+      val file = plainFile(dir, fileName)
+      if (!file.exists()) throw IOException("File not found: $fileName")
+      return Uri.fromFile(file).toString()
+    }
     runBlocking { waitUntilTaildropDirReady() }
     currentUri[fileName]?.let {
       return it
@@ -154,6 +188,9 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
   @Throws(IOException::class)
   override fun renameFile(oldPath: String, targetName: String): String {
     val ctx = appContext ?: throw IOException("not initialized")
+    plainDir()?.let { dir ->
+      return renamePlainFile(ctx, dir, oldPath, targetName)
+    }
     val dirUri = savedUri ?: throw IOException("directory not set")
     val srcUri = Uri.parse(oldPath)
     val dir =
@@ -201,6 +238,30 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
     cleanupPartials(dir, targetName)
     maybeNotifyInlineShare(ctx, dest.uri.toString(), targetName)
     return dest.uri.toString()
+  }
+
+  private fun renamePlainFile(
+      ctx: Context,
+      dir: File,
+      oldPath: String,
+      targetName: String,
+  ): String {
+    val src = Uri.parse(oldPath).path?.let { File(it) } ?: throw IOException("bad path $oldPath")
+    var dest = plainFile(dir, targetName)
+    if (dest.exists()) {
+      if (dest.length() == 0L) dest.delete()
+      else dest = plainFile(dir, generateNewFilename(targetName))
+    }
+    if (!src.renameTo(dest)) {
+      src.copyTo(dest, overwrite = true)
+      src.delete()
+    }
+    dir.listFiles()?.forEach {
+      if (it.name.endsWith(".partial") && it.name.contains(targetName)) it.delete()
+    }
+    val uri = Uri.fromFile(dest).toString()
+    maybeNotifyInlineShare(ctx, uri, dest.name)
+    return uri
   }
 
   // Inline shares are saved like any other Taildrop file; this only adds the notification
@@ -261,6 +322,11 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
 
   @Throws(IOException::class)
   override fun getFileInfo(fileName: String): String {
+    plainDir()?.let { dir ->
+      val file = plainFile(dir, fileName)
+      if (!file.exists()) throw IOException("file \"$fileName\" not found")
+      return """{"name":${JSONObject.quote(file.name)},"size":${file.length()},"modTime":${file.lastModified()}}"""
+    }
     val context = appContext ?: throw IOException("app context not initialized")
     val dirUri = savedUri ?: throw IOException("SAF URI not initialized")
     val dir =
@@ -287,6 +353,9 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
   }
 
   fun listPartialFiles(suffix: String): Array<String> {
+    plainDir()?.let { dir ->
+      return dir.list()?.filter { it.endsWith(suffix) }?.toTypedArray() ?: emptyArray()
+    }
     val context = appContext ?: return emptyArray()
     val rootUri = savedUri ?: return emptyArray()
     val dir = DocumentFile.fromTreeUri(context, Uri.parse(rootUri)) ?: return emptyArray()
@@ -307,6 +376,13 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
 
   @Throws(IOException::class)
   override fun openFileReader(name: String): libtailscale.InputStream {
+    plainDir()?.let { dir ->
+      val suffix = name.substringAfterLast('.', ".$name")
+      val file =
+          dir.listFiles()?.firstOrNull { it.name.endsWith(suffix) }
+              ?: throw IOException("no file ending with \"$suffix\"")
+      return InputStreamAdapter(FileInputStream(file))
+    }
     val context = appContext ?: throw IOException("app context not initialized")
     val rootUri = savedUri ?: throw IOException("SAF URI not initialized")
     val dir =

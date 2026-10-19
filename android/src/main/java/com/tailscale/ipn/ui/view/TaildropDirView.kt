@@ -18,12 +18,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.tailscale.ipn.R
 import com.tailscale.ipn.ui.theme.exitNodeToggleButton
+import com.tailscale.ipn.ui.util.DirectoryPicker
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.friendlyDirName
+import com.tailscale.ipn.ui.util.launchDirectoryPicker
 import com.tailscale.ipn.ui.viewModel.PermissionsViewModel
 import com.tailscale.ipn.util.TSLog
 
@@ -71,12 +74,20 @@ fun TaildropDirView(
             supportingContent = {
               Column(modifier = Modifier.fillMaxWidth()) {
                 Text(text = displayPath, style = MaterialTheme.typography.bodyMedium)
-                Button(
-                    colors = MaterialTheme.colorScheme.exitNodeToggleButton,
-                    onClick = { openDirectoryLauncher.launch(null) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                ) {
-                  Text(stringResource(R.string.pick_dir))
+                if (DirectoryPicker.isAvailable(LocalContext.current)) {
+                  Button(
+                      colors = MaterialTheme.colorScheme.exitNodeToggleButton,
+                      onClick = { openDirectoryLauncher.launchDirectoryPicker() },
+                      modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                  ) {
+                    Text(stringResource(R.string.pick_dir))
+                  }
+                } else {
+                  Text(
+                      text = stringResource(R.string.no_dir_picker),
+                      style = MaterialTheme.typography.bodyMedium,
+                      modifier = Modifier.padding(top = 12.dp),
+                  )
                 }
               }
             },

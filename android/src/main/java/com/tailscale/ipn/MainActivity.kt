@@ -63,6 +63,7 @@ import com.tailscale.ipn.ui.notifier.Notifier
 import com.tailscale.ipn.ui.theme.AppTheme
 import com.tailscale.ipn.ui.util.AndroidTVUtil
 import com.tailscale.ipn.ui.util.DeepLinkNavigator
+import com.tailscale.ipn.ui.util.launchDirectoryPicker
 import com.tailscale.ipn.ui.util.set
 import com.tailscale.ipn.ui.util.universalFit
 import com.tailscale.ipn.ui.view.AboutView
@@ -249,7 +250,7 @@ class MainActivity : ComponentActivity() {
           AlertDialog(
               onDismissRequest = {
                 showDialog = false
-                appViewModel.directoryPickerLauncher?.launch(null)
+                appViewModel.directoryPickerLauncher?.launchDirectoryPicker()
               },
               title = {
                 Text(text = stringResource(id = R.string.taildrop_directory_picker_title))
@@ -259,7 +260,7 @@ class MainActivity : ComponentActivity() {
                 PrimaryActionButton(
                     onClick = {
                       showDialog = false
-                      appViewModel.directoryPickerLauncher?.launch(null)
+                      appViewModel.directoryPickerLauncher?.launchDirectoryPicker()
                     }
                 ) {
                   Text(text = stringResource(id = R.string.taildrop_directory_picker_button))

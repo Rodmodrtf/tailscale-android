@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.webkit.MimeTypeMap
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tailscale.ipn.TaildropDirectoryStore
@@ -16,6 +18,7 @@ import com.tailscale.ipn.util.InlineShare
 import com.tailscale.ipn.util.InlineShareConsumer
 import com.tailscale.ipn.util.PendingInlineShare
 import com.tailscale.ipn.util.TSLog
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -122,10 +125,26 @@ class PendingTaildropViewModel : ViewModel() {
   }
 
   private fun openFile(context: Context, partial: Ipn.PartialFile) {
-    val uri =
+    val parsed =
         partial.FinalPath?.let { runCatching { Uri.parse(it) }.getOrNull() }
             ?: return openTaildropFolder(context)
-    val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: "*/*"
+    // Files in the plain receive folder (no folder picker) must be shared via FileProvider.
+    val uri =
+        if (parsed.scheme == "file") {
+          val file = File(parsed.path ?: return)
+          runCatching {
+            FileProvider.getUriForFile(context, "${context.packageName}.taildrop", file)
+          }
+              .getOrElse {
+                TSLog.w(TAG, "openFile: can't share $file: $it")
+                return
+              }
+        } else parsed
+    val mime =
+        runCatching { context.contentResolver.getType(uri) }.getOrNull()
+            ?: MimeTypeMap.getSingleton()
+                .getMimeTypeFromExtension(MimeTypeMap.getFileExtensionFromUrl(parsed.toString()))
+            ?: "*/*"
     val intent =
         Intent(Intent.ACTION_VIEW).apply {
           setDataAndType(uri, mime)

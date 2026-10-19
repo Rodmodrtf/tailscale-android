@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taildrop's plain receive folder on devices without a folder picker (ShareFileHelper.plainDir). -->
+<paths>
+    <external-files-path name="taildrop" path="Taildrop/" />
+    <files-path name="taildrop_internal" path="Taildrop/" />
+</paths>

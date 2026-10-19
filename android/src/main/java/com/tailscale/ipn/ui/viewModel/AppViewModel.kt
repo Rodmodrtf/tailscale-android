@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tailscale.ipn.App
+import com.tailscale.ipn.ui.util.DirectoryPicker
 import com.tailscale.ipn.util.ShareFileHelper
 import com.tailscale.ipn.util.TSLog
 import kotlinx.coroutines.flow.Flow
@@ -100,6 +101,10 @@ class AppViewModel(application: Application, private val taildropPrompt: Flow<Un
 
     val documentFile = storedUri?.let { DocumentFile.fromTreeUri(app, it) }
     if (documentFile == null || !documentFile.exists() || !documentFile.canWrite()) {
+      if (!DirectoryPicker.isAvailable(app)) {
+        TSLog.d(TAG, "No folder picker on this device; Taildrop uses internal storage.")
+        return
+      }
       TSLog.d(
           "MainViewModel",
           "Stored directory URI is invalid or inaccessible; launching directory picker.",
