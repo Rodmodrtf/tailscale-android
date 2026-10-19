@@ -59,7 +59,6 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Switch
 import androidx.tv.material3.Text
-import androidx.tv.material3.darkColorScheme
 import com.tailscale.ipn.AlwaysOnVpn
 import com.tailscale.ipn.IPNService
 import com.tailscale.ipn.R
@@ -72,22 +71,6 @@ import com.tailscale.ipn.ui.viewModel.MainViewModel
 import java.net.Inet4Address
 
 private const val FOCUS_PRIMARY = "primary"
-
-private val Green = Color(0xFF1CA672)
-private val Gray = Color(0xFF706E6D)
-private val Red = Color(0xFFEF5350)
-
-private val TvColors =
-    darkColorScheme(
-        primary = Color(0xFF5A82DC),
-        background = Color(0xFF232222),
-        surface = Color(0xFF232222),
-        surfaceVariant = Color(0xFF2E2D2D),
-        onSurface = Color(0xFFFAF9F8),
-        onSurfaceVariant = Color(0xFFAFACAB),
-        inverseSurface = Color(0xFFFAF9F8),
-        inverseOnSurface = Color(0xFF232222),
-    )
 
 /**
  * Android TV home screen built with Compose for TV (the replacement for Leanback). Sized for the
@@ -248,7 +231,7 @@ fun TVDashboardView(
                           stringResource(R.string.off)
                       else -> stringResource(R.string.tv_always_on_unknown)
                     },
-                valueColor = if (alwaysOn == true) Green else null,
+                valueColor = if (alwaysOn == true) TvGreen else null,
             ) {
               when {
                 AlwaysOnVpn.canConfigure(context) -> {
@@ -268,7 +251,7 @@ fun TVDashboardView(
                       it.uppercase()
                     },
                 value = exitNodeName,
-                valueColor = if (exitNodeOffline) Red else null,
+                valueColor = if (exitNodeOffline) TvRed else null,
                 modifier = Modifier.focusRequester(focusFor("exit-node")),
                 onClick = opening("exit-node", navigation.onNavigateToExitNodes),
             )
@@ -279,7 +262,7 @@ fun TVDashboardView(
                         if (healthIcon != null) R.string.tv_dashboard_health_needs_attention
                         else R.string.tv_dashboard_health_ok
                     ),
-                valueColor = if (healthIcon != null) Red else Green,
+                valueColor = if (healthIcon != null) TvRed else TvGreen,
                 modifier = Modifier.focusRequester(focusFor("health")),
                 onClick = opening("health", navigation.onNavigateToHealth),
             )
@@ -327,7 +310,10 @@ private fun DevicesPane(
   // Count this TV too, as the admin console does.
   val selfCount = if (hasSelf) 1 else 0
   val onlineCount = peers.count { it.Online == true } + if (hasSelf && selfOnline) 1 else 0
-  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+  Row(
+      modifier = Modifier.fillMaxWidth().padding(end = 12.dp),
+      verticalAlignment = Alignment.CenterVertically,
+  ) {
     Column(modifier = Modifier.weight(1f)) {
       Text(
           text = stringResource(R.string.tv_dashboard_devices),
@@ -459,7 +445,7 @@ private fun DeviceCard(
                 if (isExitNode) stringResource(R.string.tv_dashboard_exit_node_badge)
                 else peer.primaryIPv4Address ?: peer.Hostinfo.OS ?: "",
             style = MaterialTheme.typography.bodySmall,
-            color = if (isExitNode) Green else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (isExitNode) TvGreen else MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -486,7 +472,7 @@ private fun AlwaysOnHelp(context: Context) {
 
 @Composable
 private fun StatusDot(on: Boolean, size: Int) {
-  Box(modifier = Modifier.size(size.dp).background(if (on) Green else Gray, CircleShape))
+  Box(modifier = Modifier.size(size.dp).background(if (on) TvGreen else TvGray, CircleShape))
 }
 
 @Composable

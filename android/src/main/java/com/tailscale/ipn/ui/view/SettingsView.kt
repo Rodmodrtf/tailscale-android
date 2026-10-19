@@ -67,108 +67,129 @@ fun SettingsView(
   val isClientRemoteLoggingEnabled by viewModel.isClientRemoteLoggingEnabled.collectAsState()
   var showDisableLoggingDialog by remember { mutableStateOf(false) }
 
-  Scaffold(
-      topBar = {
-        Header(titleRes = R.string.settings_title, onBack = settingsNav.onNavigateBackHome)
-      }
-  ) { innerPadding ->
-    Column(modifier = Modifier.padding(innerPadding).verticalScroll(rememberScrollState())) {
-      if (isVPNPrepared) {
-        UserView(
-            profile = user,
-            actionState = UserActionState.NAV,
-            onClick = settingsNav.onNavigateToUserSwitcher,
-        )
-      }
+  if (isAndroidTV()) {
+    TvSettingsView(
+        settingsNav = settingsNav,
+        accountName = if (isVPNPrepared) user?.UserProfile?.LoginName else null,
+        tailnetName = user?.NetworkProfile?.tailnetNameForDisplay(),
+        corpDNSEnabled = corpDNSEnabled,
+        tailnetLockEnabled = tailnetLockEnabled,
+        showTailnetLock = showTailnetLock.value == ShowHide.Show,
+        showSubnetRouting = useTailscaleSubnets.value == AlwaysNeverUserDecides.UserDecides,
+        remoteLoggingEnabled = isClientRemoteLoggingEnabled,
+        onToggleRemoteLogging = {
+          if (isClientRemoteLoggingEnabled) {
+            showDisableLoggingDialog = true
+          } else {
+            viewModel.toggleIsClientRemoteLoggingEnabled()
+          }
+        },
+        managedByOrganization = managedByOrganization.value,
+    )
+  } else {
+    Scaffold(
+        topBar = {
+          Header(titleRes = R.string.settings_title, onBack = settingsNav.onNavigateBackHome)
+        }
+    ) { innerPadding ->
+      Column(modifier = Modifier.padding(innerPadding).verticalScroll(rememberScrollState())) {
+        if (isVPNPrepared) {
+          UserView(
+              profile = user,
+              actionState = UserActionState.NAV,
+              onClick = settingsNav.onNavigateToUserSwitcher,
+          )
+        }
 
-      if (isAdmin && !isAndroidTV()) {
-        Lists.ItemDivider()
-        AdminTextView { handler.openUri(Links.ADMIN_URL) }
-      }
+        if (isAdmin && !isAndroidTV()) {
+          Lists.ItemDivider()
+          AdminTextView { handler.openUri(Links.ADMIN_URL) }
+        }
 
-      Lists.SectionDivider()
-      Setting.Text(
-          R.string.dns_settings,
-          subtitle =
-              corpDNSEnabled?.let {
-                stringResource(
-                    if (it) R.string.using_tailscale_dns else R.string.not_using_tailscale_dns
-                )
-              },
-          onClick = settingsNav.onNavigateToDNSSettings,
-      )
-
-      Lists.ItemDivider()
-      Setting.Text(
-          R.string.split_tunneling,
-          subtitle = stringResource(R.string.filter_apps_allowed_to_access_tailscale),
-          onClick = settingsNav.onNavigateToSplitTunneling,
-      )
-
-      if (showTailnetLock.value == ShowHide.Show) {
-        Lists.ItemDivider()
-        Setting.Text(
-            R.string.tailnet_lock,
-            subtitle =
-                tailnetLockEnabled?.let {
-                  stringResource(if (it) R.string.enabled else R.string.disabled)
-                },
-            onClick = settingsNav.onNavigateToTailnetLock,
-        )
-      }
-      if (useTailscaleSubnets.value == AlwaysNeverUserDecides.UserDecides) {
-        Lists.ItemDivider()
-        Setting.Text(R.string.subnet_routing, onClick = settingsNav.onNavigateToSubnetRouting)
-      }
-
-      Lists.ItemDivider()
-      Setting.Switch(
-          R.string.client_remote_logging_enabled,
-          subtitle =
-              stringResource(
-                  if (MDMSettings.isMDMConfigured)
-                      R.string.client_remote_logging_enabled_subtitle_mdm
-                  else R.string.client_remote_logging_enabled_subtitle
-              ),
-          isOn = isClientRemoteLoggingEnabled,
-          enabled = !MDMSettings.isMDMConfigured,
-          onToggle = {
-            if (isClientRemoteLoggingEnabled) {
-              showDisableLoggingDialog = true
-            } else {
-              viewModel.toggleIsClientRemoteLoggingEnabled()
-            }
-          },
-      )
-
-      if (!AndroidTVUtil.isAndroidTV()) {
-        Lists.ItemDivider()
-        Setting.Text(R.string.permissions, onClick = settingsNav.onNavigateToPermissions)
-      }
-
-      managedByOrganization.value?.let {
-        Lists.ItemDivider()
-        Setting.Text(
-            title = stringResource(R.string.managed_by_orgName, it),
-            onClick = settingsNav.onNavigateToManagedBy,
-        )
-      }
-
-      Lists.SectionDivider()
-      Setting.Text(R.string.bug_report, onClick = settingsNav.onNavigateToBugReport)
-
-      Lists.ItemDivider()
-      Setting.Text(
-          R.string.about_tailscale,
-          subtitle = "${stringResource(id = R.string.version)} ${AppVersion.Short()}",
-          onClick = settingsNav.onNavigateToAbout,
-      )
-
-      // TODO: put a heading for the debug section
-      if (BuildConfig.DEBUG) {
         Lists.SectionDivider()
-        Lists.MutedHeader(text = stringResource(R.string.internal_debug_options))
-        Setting.Text(R.string.mdm_settings, onClick = settingsNav.onNavigateToMDMSettings)
+        Setting.Text(
+            R.string.dns_settings,
+            subtitle =
+                corpDNSEnabled?.let {
+                  stringResource(
+                      if (it) R.string.using_tailscale_dns else R.string.not_using_tailscale_dns
+                  )
+                },
+            onClick = settingsNav.onNavigateToDNSSettings,
+        )
+
+        Lists.ItemDivider()
+        Setting.Text(
+            R.string.split_tunneling,
+            subtitle = stringResource(R.string.filter_apps_allowed_to_access_tailscale),
+            onClick = settingsNav.onNavigateToSplitTunneling,
+        )
+
+        if (showTailnetLock.value == ShowHide.Show) {
+          Lists.ItemDivider()
+          Setting.Text(
+              R.string.tailnet_lock,
+              subtitle =
+                  tailnetLockEnabled?.let {
+                    stringResource(if (it) R.string.enabled else R.string.disabled)
+                  },
+              onClick = settingsNav.onNavigateToTailnetLock,
+          )
+        }
+        if (useTailscaleSubnets.value == AlwaysNeverUserDecides.UserDecides) {
+          Lists.ItemDivider()
+          Setting.Text(R.string.subnet_routing, onClick = settingsNav.onNavigateToSubnetRouting)
+        }
+
+        Lists.ItemDivider()
+        Setting.Switch(
+            R.string.client_remote_logging_enabled,
+            subtitle =
+                stringResource(
+                    if (MDMSettings.isMDMConfigured)
+                        R.string.client_remote_logging_enabled_subtitle_mdm
+                    else R.string.client_remote_logging_enabled_subtitle
+                ),
+            isOn = isClientRemoteLoggingEnabled,
+            enabled = !MDMSettings.isMDMConfigured,
+            onToggle = {
+              if (isClientRemoteLoggingEnabled) {
+                showDisableLoggingDialog = true
+              } else {
+                viewModel.toggleIsClientRemoteLoggingEnabled()
+              }
+            },
+        )
+
+        if (!AndroidTVUtil.isAndroidTV()) {
+          Lists.ItemDivider()
+          Setting.Text(R.string.permissions, onClick = settingsNav.onNavigateToPermissions)
+        }
+
+        managedByOrganization.value?.let {
+          Lists.ItemDivider()
+          Setting.Text(
+              title = stringResource(R.string.managed_by_orgName, it),
+              onClick = settingsNav.onNavigateToManagedBy,
+          )
+        }
+
+        Lists.SectionDivider()
+        Setting.Text(R.string.bug_report, onClick = settingsNav.onNavigateToBugReport)
+
+        Lists.ItemDivider()
+        Setting.Text(
+            R.string.about_tailscale,
+            subtitle = "${stringResource(id = R.string.version)} ${AppVersion.Short()}",
+            onClick = settingsNav.onNavigateToAbout,
+        )
+
+        // TODO: put a heading for the debug section
+        if (BuildConfig.DEBUG) {
+          Lists.SectionDivider()
+          Lists.MutedHeader(text = stringResource(R.string.internal_debug_options))
+          Setting.Text(R.string.mdm_settings, onClick = settingsNav.onNavigateToMDMSettings)
+        }
       }
     }
   }

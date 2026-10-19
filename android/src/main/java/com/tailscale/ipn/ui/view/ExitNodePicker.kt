@@ -28,6 +28,7 @@ import com.tailscale.ipn.mdm.ShowHide
 import com.tailscale.ipn.ui.notifier.Notifier
 import com.tailscale.ipn.ui.theme.disabledListItem
 import com.tailscale.ipn.ui.theme.listItem
+import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.LoadingIndicator
 import com.tailscale.ipn.ui.util.itemsWithDividers
@@ -42,6 +43,10 @@ fun ExitNodePicker(
     nav: ExitNodePickerNav,
     model: ExitNodePickerViewModel = viewModel(factory = ExitNodePickerViewModelFactory(nav)),
 ) {
+  if (isAndroidTV()) {
+    TvExitNodePicker(nav, model)
+    return
+  }
   LoadingIndicator.Wrap {
     Scaffold(topBar = { Header(R.string.choose_exit_node, onBack = nav.onNavigateBackHome) }) {
         innerPadding ->

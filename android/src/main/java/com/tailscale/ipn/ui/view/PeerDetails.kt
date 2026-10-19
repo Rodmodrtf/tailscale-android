@@ -56,6 +56,10 @@ fun PeerDetails(
                 PeerDetailsViewModelFactory(nodeId, LocalContext.current.filesDir, pingViewModel)
         ),
 ) {
+  if (isAndroidTV()) {
+    TvPeerDetails(model)
+    return
+  }
   val isPinging by model.isPinging.collectAsState()
 
   model.netmap.collectAsState().value?.let { netmap ->
