@@ -25,6 +25,7 @@ import com.tailscale.ipn.R
 import com.tailscale.ipn.mdm.MDMSettings
 import com.tailscale.ipn.ui.model.DnsType
 import com.tailscale.ipn.ui.notifier.Notifier
+import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.ClipboardValueView
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.LoadingIndicator
@@ -42,6 +43,10 @@ fun DNSSettingsView(
     backToSettings: BackNavigation,
     model: DNSSettingsViewModel = viewModel(factory = DNSSettingsViewModelFactory()),
 ) {
+  if (isAndroidTV()) {
+    TvDNSSettingsView(model)
+    return
+  }
   val state: DNSEnablementState by model.enablementState.collectAsState()
   val resolvers = model.dnsConfig.collectAsState().value?.Resolvers ?: emptyList()
   val domains = model.dnsConfig.collectAsState().value?.Domains ?: emptyList()

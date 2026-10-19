@@ -41,6 +41,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tailscale.ipn.App
 import com.tailscale.ipn.R
+import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.set
 import com.tailscale.ipn.ui.viewModel.SplitTunnelAppPickerViewModel
@@ -50,6 +51,10 @@ fun SplitTunnelAppPickerView(
     backToSettings: BackNavigation,
     model: SplitTunnelAppPickerViewModel = viewModel(),
 ) {
+  if (isAndroidTV()) {
+    TvSplitTunnelAppPickerView(model)
+    return
+  }
   val installedApps by model.installedApps.collectAsState()
   val selectedPackageNames by model.selectedPackageNames.collectAsState()
   val allowSelected by model.allowSelected.collectAsState()

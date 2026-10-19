@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Card
@@ -28,6 +29,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tailscale.ipn.R
 import com.tailscale.ipn.ui.Links.SUBNET_ROUTERS_KB_URL
+import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.LoadingIndicator
 import com.tailscale.ipn.ui.util.itemsWithDividers
@@ -42,86 +44,133 @@ fun SubnetRoutingView(backToSettings: BackNavigation, model: SubnetRoutingViewMo
   val useSubnets by model.routeAll.collectAsState()
   val currentError by model.currentError.collectAsState()
 
-  Scaffold(
-      topBar = {
-        Header(
-            R.string.subnet_routes,
-            onBack = backToSettings,
-            actions = {
-              IconButton(onClick = { uriHandler.openUri(SUBNET_ROUTERS_KB_URL) }) {
-                Icon(
-                    painter = painterResource(R.drawable.info),
-                    contentDescription = stringResource(R.string.open_kb_article),
-                )
-              }
-            },
-        )
-      }
-  ) { innerPadding ->
+  if (isAndroidTV()) {
+    currentError?.let {
+      ErrorDialog(
+          title = R.string.failed_to_save,
+          message = it,
+          onDismiss = { model.onErrorDismissed() },
+      )
+    }
     LoadingIndicator.Wrap {
-      LazyColumn(modifier = Modifier.padding(innerPadding)) {
-        currentError?.let {
-          item("error") {
-            ErrorDialog(
-                title = R.string.failed_to_save,
-                message = it,
-                onDismiss = { model.onErrorDismissed() },
-            )
+      TvScreen(
+          title = stringResource(R.string.subnet_routes),
+          subtitle = stringResource(R.string.use_tailscale_subnets_subtitle),
+          side = {
+            TvRow(
+                headline = stringResource(R.string.use_tailscale_subnets),
+                trailing = {
+                  androidx.tv.material3.Switch(checked = useSubnets, onCheckedChange = null)
+                },
+            ) {
+              LoadingIndicator.start()
+              model.toggleUseSubnets { LoadingIndicator.stop() }
+            }
+            TvRow(headline = stringResource(R.string.add_new_route)) {
+              model.startEditingRoute("")
+            }
+          },
+      ) {
+        TvSectionLabel(stringResource(R.string.advertised_routes))
+        TvMutedText(
+            stringResource(R.string.run_as_subnet_router_header),
+            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+        )
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          items(subnetRoutes, key = { it }) { route ->
+            TvRow(
+                headline = route,
+                supporting = stringResource(R.string.tv_route_actions),
+                onLongClick = { model.deleteRoute(route) },
+            ) {
+              model.startEditingRoute(route)
+            }
           }
         }
-        item("subnetsToggle") {
-          Setting.Switch(
-              R.string.use_tailscale_subnets,
-              isOn = useSubnets,
-              onToggle = {
-                LoadingIndicator.start()
-                model.toggleUseSubnets { LoadingIndicator.stop() }
-              },
-          )
-        }
-        item("subtitle") {
-          ListItem(
-              headlineContent = {
-                Text(
-                    stringResource(R.string.use_tailscale_subnets_subtitle),
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-              }
-          )
-        }
-        item("divider0") { Lists.SectionDivider() }
-        item(key = "header") {
-          Lists.MutedHeader(stringResource(R.string.advertised_routes))
-          ListItem(
-              headlineContent = {
-                Text(
-                    stringResource(R.string.run_as_subnet_router_header),
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-              }
-          )
-        }
-
-        itemsWithDividers(subnetRoutes, key = { it }) {
-          SubnetRouteRowView(
-              route = it,
-              onEdit = { model.startEditingRoute(it) },
-              onDelete = { model.deleteRoute(it) },
-              modifier = Modifier.animateItem(),
-          )
-        }
-
-        item("addNewRoute") {
-          Lists.ItemDivider()
-          ListItem(
-              headlineContent = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                  Icon(Icons.Outlined.Add, contentDescription = null)
-                  Text(stringResource(R.string.add_new_route))
+      }
+    }
+  } else {
+    Scaffold(
+        topBar = {
+          Header(
+              R.string.subnet_routes,
+              onBack = backToSettings,
+              actions = {
+                IconButton(onClick = { uriHandler.openUri(SUBNET_ROUTERS_KB_URL) }) {
+                  Icon(
+                      painter = painterResource(R.drawable.info),
+                      contentDescription = stringResource(R.string.open_kb_article),
+                  )
                 }
               },
-              modifier = Modifier.clickable { model.startEditingRoute("") },
           )
+        }
+    ) { innerPadding ->
+      LoadingIndicator.Wrap {
+        LazyColumn(modifier = Modifier.padding(innerPadding)) {
+          currentError?.let {
+            item("error") {
+              ErrorDialog(
+                  title = R.string.failed_to_save,
+                  message = it,
+                  onDismiss = { model.onErrorDismissed() },
+              )
+            }
+          }
+          item("subnetsToggle") {
+            Setting.Switch(
+                R.string.use_tailscale_subnets,
+                isOn = useSubnets,
+                onToggle = {
+                  LoadingIndicator.start()
+                  model.toggleUseSubnets { LoadingIndicator.stop() }
+                },
+            )
+          }
+          item("subtitle") {
+            ListItem(
+                headlineContent = {
+                  Text(
+                      stringResource(R.string.use_tailscale_subnets_subtitle),
+                      modifier = Modifier.padding(bottom = 8.dp),
+                  )
+                }
+            )
+          }
+          item("divider0") { Lists.SectionDivider() }
+          item(key = "header") {
+            Lists.MutedHeader(stringResource(R.string.advertised_routes))
+            ListItem(
+                headlineContent = {
+                  Text(
+                      stringResource(R.string.run_as_subnet_router_header),
+                      modifier = Modifier.padding(vertical = 8.dp),
+                  )
+                }
+            )
+          }
+
+          itemsWithDividers(subnetRoutes, key = { it }) {
+            SubnetRouteRowView(
+                route = it,
+                onEdit = { model.startEditingRoute(it) },
+                onDelete = { model.deleteRoute(it) },
+                modifier = Modifier.animateItem(),
+            )
+          }
+
+          item("addNewRoute") {
+            Lists.ItemDivider()
+            ListItem(
+                headlineContent = {
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Outlined.Add, contentDescription = null)
+                    Text(stringResource(R.string.add_new_route))
+                  }
+                },
+                modifier = Modifier.clickable { model.startEditingRoute("") },
+            )
+          }
         }
       }
     }

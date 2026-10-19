@@ -83,6 +83,9 @@
     <string name="enable">Enable</string>
     <string name="stop">Stop</string>
     <string name="no_dir_picker">This device has no folder picker. Received files are saved to %1$s.</string>
+    <string name="tv_switching">Switching…</string>
+    <string name="tv_route_actions">OK to edit · hold OK to remove</string>
+    <string name="tv_loading_apps">Loading apps…</string>
     <string name="tv_dashboard_devices">Devices</string>
     <string name="tv_dashboard_device_count">%1$d of %2$d online</string>
     <string name="tv_dashboard_no_devices">No devices are visible yet.</string>

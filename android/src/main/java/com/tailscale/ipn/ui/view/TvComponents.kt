@@ -20,7 +20,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -109,24 +117,30 @@ fun TvRow(
     modifier: Modifier = Modifier,
     supporting: String? = null,
     supportingColor: Color? = null,
+    supportingMaxLines: Int = 2,
+    headlineMaxLines: Int = 1,
     selected: Boolean = false,
     enabled: Boolean = true,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
   ListItem(
       selected = selected,
       enabled = enabled,
       onClick = onClick,
+      onLongClick = onLongClick,
       modifier = modifier,
-      headlineContent = { Text(headline, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+      headlineContent = {
+        Text(headline, maxLines = headlineMaxLines, overflow = TextOverflow.Ellipsis)
+      },
       supportingContent =
           if (supporting != null) {
             {
               Text(
                   supporting,
-                  maxLines = 2,
+                  maxLines = supportingMaxLines,
                   overflow = TextOverflow.Ellipsis,
                   // Unset color lets the focused (inverted) row recolor the text.
                   color = supportingColor ?: Color.Unspecified,
@@ -167,4 +181,37 @@ fun TvMutedText(text: String, modifier: Modifier = Modifier) {
       style = MaterialTheme.typography.bodyLarge,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
   )
+}
+
+/**
+ * Remembers which item opened a sub-screen so focus returns to it when coming back, instead of the
+ * screen's first item.
+ */
+class TvFocusMemory(private val lastKey: MutableState<String>) {
+  private val requesters = mutableMapOf<String, FocusRequester>()
+
+  /** Modifier for the item with this key. */
+  fun item(key: String): Modifier =
+      Modifier.focusRequester(requesters.getOrPut(key) { FocusRequester() })
+
+  /** Wraps an action so that the item with this key gets focus back afterwards. */
+  fun opening(key: String, action: () -> Unit): () -> Unit = {
+    lastKey.value = key
+    action()
+  }
+
+  internal fun restore() {
+    runCatching { requesters[lastKey.value]?.requestFocus() }
+  }
+}
+
+@Composable
+fun rememberTvFocusMemory(initialKey: String): TvFocusMemory {
+  val lastKey = rememberSaveable { mutableStateOf(initialKey) }
+  val memory = remember { TvFocusMemory(lastKey) }
+  LaunchedEffect(Unit) {
+    withFrameNanos {}
+    memory.restore()
+  }
+  return memory
 }

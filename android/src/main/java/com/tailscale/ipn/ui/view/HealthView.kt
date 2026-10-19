@@ -48,6 +48,10 @@ import com.tailscale.ipn.ui.viewModel.HealthViewModel
 
 @Composable
 fun HealthView(backToSettings: BackNavigation, model: HealthViewModel = viewModel()) {
+  if (isAndroidTV()) {
+    TvHealthView(model)
+    return
+  }
   val warnings by model.warnings.collectAsState()
 
   Scaffold(topBar = { Header(titleRes = R.string.health_warnings, onBack = backToSettings) }) {

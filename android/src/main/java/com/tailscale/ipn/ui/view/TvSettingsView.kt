@@ -8,11 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Switch
@@ -36,8 +32,7 @@ fun TvSettingsView(
     onToggleRemoteLogging: () -> Unit,
     managedByOrganization: String?,
 ) {
-  val firstFocus = remember { FocusRequester() }
-  LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
+  val focus = rememberTvFocusMemory("dns")
 
   TvScreen(
       title = stringResource(R.string.settings_title),
@@ -47,28 +42,33 @@ fun TvSettingsView(
           TvRow(
               headline = it,
               supporting = tailnetName,
-              onClick = settingsNav.onNavigateToUserSwitcher,
+              modifier = focus.item("account"),
+              onClick = focus.opening("account", settingsNav.onNavigateToUserSwitcher),
           )
         }
         managedByOrganization?.let {
           TvRow(
               headline = stringResource(R.string.managed_by_orgName, it),
-              onClick = settingsNav.onNavigateToManagedBy,
+              modifier = focus.item("managed"),
+              onClick = focus.opening("managed", settingsNav.onNavigateToManagedBy),
           )
         }
         TvRow(
             headline = stringResource(R.string.about_tailscale),
-            onClick = settingsNav.onNavigateToAbout,
+            modifier = focus.item("about"),
+            onClick = focus.opening("about", settingsNav.onNavigateToAbout),
         )
         TvRow(
             headline = stringResource(R.string.bug_report),
-            onClick = settingsNav.onNavigateToBugReport,
+            modifier = focus.item("bug"),
+            onClick = focus.opening("bug", settingsNav.onNavigateToBugReport),
         )
         if (BuildConfig.DEBUG) {
           TvRow(
               headline = stringResource(R.string.mdm_settings),
               supporting = stringResource(R.string.internal_debug_options),
-              onClick = settingsNav.onNavigateToMDMSettings,
+              modifier = focus.item("mdm"),
+              onClick = focus.opening("mdm", settingsNav.onNavigateToMDMSettings),
           )
         }
       },
@@ -81,21 +81,22 @@ fun TvSettingsView(
       item {
         TvRow(
             headline = stringResource(R.string.dns_settings),
-            modifier = Modifier.focusRequester(firstFocus),
             supporting =
                 corpDNSEnabled?.let {
                   stringResource(
                       if (it) R.string.using_tailscale_dns else R.string.not_using_tailscale_dns
                   )
                 },
-            onClick = settingsNav.onNavigateToDNSSettings,
+            modifier = focus.item("dns"),
+            onClick = focus.opening("dns", settingsNav.onNavigateToDNSSettings),
         )
       }
       item {
         TvRow(
             headline = stringResource(R.string.split_tunneling),
             supporting = stringResource(R.string.filter_apps_allowed_to_access_tailscale),
-            onClick = settingsNav.onNavigateToSplitTunneling,
+            modifier = focus.item("split"),
+            onClick = focus.opening("split", settingsNav.onNavigateToSplitTunneling),
         )
       }
       if (showTailnetLock) {
@@ -106,7 +107,8 @@ fun TvSettingsView(
                   tailnetLockEnabled?.let {
                     stringResource(if (it) R.string.enabled else R.string.disabled)
                   },
-              onClick = settingsNav.onNavigateToTailnetLock,
+              modifier = focus.item("lock"),
+              onClick = focus.opening("lock", settingsNav.onNavigateToTailnetLock),
           )
         }
       }
@@ -114,7 +116,8 @@ fun TvSettingsView(
         item {
           TvRow(
               headline = stringResource(R.string.subnet_routing),
-              onClick = settingsNav.onNavigateToSubnetRouting,
+              modifier = focus.item("subnet"),
+              onClick = focus.opening("subnet", settingsNav.onNavigateToSubnetRouting),
           )
         }
       }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -41,6 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tailscale.ipn.R
+import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.itemsWithDividers
 import com.tailscale.ipn.ui.util.set
@@ -65,97 +67,160 @@ fun UserSwitcherView(nav: UserSwitcherNav, viewModel: UserSwitcherViewModel = vi
   val capabilityIsOwner = "https://tailscale.com/cap/is-owner"
   val isOwner = netmapState?.hasCap(capabilityIsOwner) == true
 
-  Scaffold(
-      topBar = {
-        Header(
-            R.string.accounts,
-            onBack = nav.backToSettings,
-            actions = {
-              Row {
-                FusMenu(
-                    viewModel = viewModel,
-                    onAuthKeyClick = nav.onNavigateToAuthKey,
-                    onCustomClick = nav.onNavigateCustomControl,
-                )
-                IconButton(onClick = { viewModel.showHeaderMenu.set(!showHeaderMenu) }) {
-                  Icon(Icons.Default.MoreVert, "menu")
-                }
-              }
-            },
-        )
-      }
-  ) { innerPadding ->
-    Column(
-        modifier = Modifier.padding(innerPadding).fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-      val showErrorDialog by viewModel.errorDialog.collectAsState()
-
-      // Show the error overlay if need be
-      showErrorDialog?.let { ErrorDialog(type = it, action = { viewModel.errorDialog.set(null) }) }
-
-      // When switch is invoked, this stores the ID of the user we're trying to switch to
-      // so we can decorate it with a spinner.  The actual logged in user will not change
-      // until
-      // we get our first netmap update back with the new userId for SelfNode.
-      // (jonathan) TODO: This user switch is not immediate.  We may need to represent the
-      // "switching users" state globally (if ipnState is insufficient)
-      val nextUserId = remember { mutableStateOf<String?>(null) }
-
-      LazyColumn {
-        itemsWithDividers(users ?: emptyList()) { user ->
-          if (user.ID == currentUser?.ID) {
-            UserView(profile = user, actionState = UserActionState.CURRENT)
-          } else {
-            val state =
-                if (user.ID == nextUserId.value) UserActionState.SWITCHING else UserActionState.NONE
-            UserView(
-                profile = user,
-                actionState = state,
-                onClick = {
-                  nextUserId.value = user.ID
-                  viewModel.switchProfile(user) {
-                    if (it.isFailure) {
-                      viewModel.errorDialog.set(ErrorDialogType.LOGOUT_FAILED)
-                      nextUserId.value = null
-                    } else {
-                      nav.onNavigateHome()
-                    }
-                  }
-                },
-            )
-          }
-        }
-
-        item {
-          Lists.SectionDivider()
-          Setting.Text(R.string.add_account) {
+  if (isAndroidTV()) {
+    val showErrorDialog by viewModel.errorDialog.collectAsState()
+    showErrorDialog?.let { ErrorDialog(type = it, action = { viewModel.errorDialog.set(null) }) }
+    val nextUserId = remember { mutableStateOf<String?>(null) }
+    TvScreen(
+        title = stringResource(R.string.accounts),
+        subtitle = currentUser?.UserProfile?.LoginName,
+        side = {
+          TvRow(headline = stringResource(R.string.add_account)) {
             viewModel.addProfile {
-              if (it.isFailure) {
-                viewModel.errorDialog.set(ErrorDialogType.ADD_PROFILE_FAILED)
+              if (it.isFailure) viewModel.errorDialog.set(ErrorDialogType.ADD_PROFILE_FAILED)
+            }
+          }
+          TvRow(headline = stringResource(R.string.reauthenticate)) { viewModel.login() }
+          TvRow(
+              headline = stringResource(R.string.auth_key_menu),
+              onClick = nav.onNavigateToAuthKey,
+          )
+          TvRow(
+              headline = stringResource(R.string.custom_control_menu),
+              onClick = nav.onNavigateCustomControl,
+          )
+          if (currentUser != null) {
+            TvRow(headline = stringResource(R.string.log_out)) {
+              viewModel.logout {
+                it.onSuccess { nav.onNavigateHome() }
+                    .onFailure { viewModel.errorDialog.set(ErrorDialogType.LOGOUT_FAILED) }
               }
             }
           }
-
-          Lists.ItemDivider()
-          Setting.Text(R.string.reauthenticate) { viewModel.login() }
-
-          if (currentUser != null) {
-            Lists.ItemDivider()
-            Setting.Text(
-                R.string.log_out,
-                destructive = true,
-                onClick = {
-                  viewModel.logout {
-                    it.onSuccess { nav.onNavigateHome() }
-                        .onFailure { viewModel.errorDialog.set(ErrorDialogType.LOGOUT_FAILED) }
+          TvRow(headline = stringResource(R.string.delete_tailnet)) { showDeleteDialog = true }
+        },
+    ) {
+      LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        items(users ?: emptyList(), key = { it.ID }) { user ->
+          val isCurrent = user.ID == currentUser?.ID
+          TvRow(
+              headline = user.UserProfile.LoginName,
+              supporting =
+                  if (user.ID == nextUserId.value) stringResource(R.string.tv_switching)
+                  else user.NetworkProfile?.tailnetNameForDisplay(),
+              selected = isCurrent,
+              trailing = if (isCurrent) ({ TvCheck() }) else null,
+          ) {
+            if (isCurrent) return@TvRow
+            nextUserId.value = user.ID
+            viewModel.switchProfile(user) {
+              if (it.isFailure) {
+                viewModel.errorDialog.set(ErrorDialogType.LOGOUT_FAILED)
+                nextUserId.value = null
+              } else {
+                nav.onNavigateHome()
+              }
+            }
+          }
+        }
+      }
+    }
+  } else {
+    Scaffold(
+        topBar = {
+          Header(
+              R.string.accounts,
+              onBack = nav.backToSettings,
+              actions = {
+                Row {
+                  FusMenu(
+                      viewModel = viewModel,
+                      onAuthKeyClick = nav.onNavigateToAuthKey,
+                      onCustomClick = nav.onNavigateCustomControl,
+                  )
+                  IconButton(onClick = { viewModel.showHeaderMenu.set(!showHeaderMenu) }) {
+                    Icon(Icons.Default.MoreVert, "menu")
                   }
-                },
-            )
+                }
+              },
+          )
+        }
+    ) { innerPadding ->
+      Column(
+          modifier = Modifier.padding(innerPadding).fillMaxWidth(),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        val showErrorDialog by viewModel.errorDialog.collectAsState()
+
+        // Show the error overlay if need be
+        showErrorDialog?.let {
+          ErrorDialog(type = it, action = { viewModel.errorDialog.set(null) })
+        }
+
+        // When switch is invoked, this stores the ID of the user we're trying to switch to
+        // so we can decorate it with a spinner.  The actual logged in user will not change
+        // until
+        // we get our first netmap update back with the new userId for SelfNode.
+        // (jonathan) TODO: This user switch is not immediate.  We may need to represent the
+        // "switching users" state globally (if ipnState is insufficient)
+        val nextUserId = remember { mutableStateOf<String?>(null) }
+
+        LazyColumn {
+          itemsWithDividers(users ?: emptyList()) { user ->
+            if (user.ID == currentUser?.ID) {
+              UserView(profile = user, actionState = UserActionState.CURRENT)
+            } else {
+              val state =
+                  if (user.ID == nextUserId.value) UserActionState.SWITCHING
+                  else UserActionState.NONE
+              UserView(
+                  profile = user,
+                  actionState = state,
+                  onClick = {
+                    nextUserId.value = user.ID
+                    viewModel.switchProfile(user) {
+                      if (it.isFailure) {
+                        viewModel.errorDialog.set(ErrorDialogType.LOGOUT_FAILED)
+                        nextUserId.value = null
+                      } else {
+                        nav.onNavigateHome()
+                      }
+                    }
+                  },
+              )
+            }
           }
 
-          Lists.SectionDivider()
-          Setting.Text(R.string.delete_tailnet, destructive = true) { showDeleteDialog = true }
+          item {
+            Lists.SectionDivider()
+            Setting.Text(R.string.add_account) {
+              viewModel.addProfile {
+                if (it.isFailure) {
+                  viewModel.errorDialog.set(ErrorDialogType.ADD_PROFILE_FAILED)
+                }
+              }
+            }
+
+            Lists.ItemDivider()
+            Setting.Text(R.string.reauthenticate) { viewModel.login() }
+
+            if (currentUser != null) {
+              Lists.ItemDivider()
+              Setting.Text(
+                  R.string.log_out,
+                  destructive = true,
+                  onClick = {
+                    viewModel.logout {
+                      it.onSuccess { nav.onNavigateHome() }
+                          .onFailure { viewModel.errorDialog.set(ErrorDialogType.LOGOUT_FAILED) }
+                    }
+                  },
+              )
+            }
+
+            Lists.SectionDivider()
+            Setting.Text(R.string.delete_tailnet, destructive = true) { showDeleteDialog = true }
+          }
         }
       }
     }

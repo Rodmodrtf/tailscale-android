@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -33,11 +34,35 @@ import com.tailscale.ipn.BuildConfig
 import com.tailscale.ipn.R
 import com.tailscale.ipn.ui.Links
 import com.tailscale.ipn.ui.theme.logoBackground
+import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.AppVersion
 
 @Composable
 fun AboutView(backToSettings: BackNavigation) {
   val localClipboardManager = LocalClipboardManager.current
+
+  if (isAndroidTV()) {
+    TvScreen(
+        title = stringResource(R.string.about_view_title),
+        // TV has no clipboard, so show the full version (with commit hashes) directly.
+        subtitle = "${stringResource(R.string.version)} ${BuildConfig.VERSION_NAME}",
+    ) {
+      TvMutedText(stringResource(R.string.about_view_footnotes))
+      // No browser on most TVs; show where the documents live instead of opening them.
+      androidx.compose.foundation.lazy.LazyColumn {
+        items(
+            listOf(
+                R.string.acknowledgements to Links.LICENSES_URL,
+                R.string.privacy_policy to Links.PRIVACY_POLICY_URL,
+                R.string.terms_of_service to Links.TERMS_URL,
+            )
+        ) { (title, url) ->
+          TvRow(headline = stringResource(title), supporting = url, onClick = {})
+        }
+      }
+    }
+    return
+  }
 
   Scaffold(topBar = { Header(R.string.about_view_header, onBack = backToSettings) }) { innerPadding
     ->

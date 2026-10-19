@@ -24,11 +24,13 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tailscale.ipn.R
 import com.tailscale.ipn.ui.Links
 import com.tailscale.ipn.ui.theme.defaultTextColor
 import com.tailscale.ipn.ui.theme.link
+import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.ClipboardValueView
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.set
@@ -37,6 +39,33 @@ import com.tailscale.ipn.ui.viewModel.BugReportViewModel
 @Composable
 fun BugReportView(backToSettings: BackNavigation, model: BugReportViewModel = viewModel()) {
   val bugReportID by model.bugReportID.collectAsState()
+
+  if (isAndroidTV()) {
+    TvScreen(
+        title = stringResource(R.string.bug_report_title),
+        subtitle =
+            stringResource(R.string.bug_report_instructions_prefix) +
+                stringResource(R.string.bug_report_instructions_linktext) +
+                stringResource(R.string.bug_report_instructions_suffix) +
+                " (" +
+                Links.SUPPORT_URL +
+                ")",
+    ) {
+      // Shown large so it can be read off the screen; TV has no clipboard.
+      androidx.tv.material3.Text(
+          text = stringResource(R.string.bug_report_id),
+          style = androidx.tv.material3.MaterialTheme.typography.titleMedium,
+          color = androidx.tv.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      androidx.tv.material3.Text(
+          text = bugReportID,
+          style = androidx.tv.material3.MaterialTheme.typography.headlineSmall,
+          modifier = Modifier.padding(vertical = 12.dp),
+      )
+      TvMutedText(stringResource(R.string.bug_report_id_desc))
+    }
+    return
+  }
 
   Scaffold(topBar = { Header(R.string.bug_report_title, onBack = backToSettings) }) { innerPadding
     ->

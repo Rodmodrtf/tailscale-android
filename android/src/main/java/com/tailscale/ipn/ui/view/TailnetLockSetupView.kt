@@ -7,6 +7,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,11 +31,13 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tailscale.ipn.R
 import com.tailscale.ipn.ui.Links
 import com.tailscale.ipn.ui.theme.defaultTextColor
 import com.tailscale.ipn.ui.theme.link
+import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.ClipboardValueView
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.LoadingIndicator
@@ -51,6 +54,52 @@ fun TailnetLockSetupView(
   val nodeKey by model.nodeKey.collectAsState()
   val tailnetLockKey by model.tailnetLockKey.collectAsState()
   val tailnetLockTlPubKey = tailnetLockKey.replace("nlpub", "tlpub")
+
+  if (isAndroidTV()) {
+    LoadingIndicator.Wrap {
+      TvScreen(
+          title = stringResource(R.string.tailnet_lock),
+          subtitle = stringResource(R.string.tailnet_lock_explainer),
+          side = {
+            statusItems.forEach { statusItem ->
+              TvRow(
+                  headline = stringResource(statusItem.title),
+                  headlineMaxLines = 3,
+                  leading = {
+                    androidx.tv.material3.Icon(
+                        painter = painterResource(id = statusItem.icon),
+                        contentDescription = null,
+                    )
+                  },
+                  onClick = {},
+              )
+            }
+          },
+      ) {
+        // Read-only (no clipboard on TV) but focusable so long keys can be scrolled to.
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          item {
+            TvRow(
+                headline = stringResource(R.string.node_key),
+                supporting = "$nodeKey\n${stringResource(R.string.node_key_explainer)}",
+                supportingMaxLines = 6,
+                onClick = {},
+            )
+          }
+          item {
+            TvRow(
+                headline = stringResource(R.string.tailnet_lock_key),
+                supporting =
+                    "$tailnetLockTlPubKey\n${stringResource(R.string.tailnet_lock_key_explainer)}",
+                supportingMaxLines = 6,
+                onClick = {},
+            )
+          }
+        }
+      }
+    }
+    return
+  }
 
   Scaffold(topBar = { Header(R.string.tailnet_lock, onBack = backToSettings) }) { innerPadding ->
     LoadingIndicator.Wrap {
