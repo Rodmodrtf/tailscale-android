@@ -3,8 +3,11 @@
 
 package com.tailscale.ipn.util
 
+import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Log
@@ -22,10 +25,12 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mockito.Mockito.mockConstruction
 import org.mockito.Mockito.mockStatic
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 class ShareFileHelperTest {
   private val internalDir = "/data/user/0/com.tailscale.ipn/files"
@@ -42,7 +47,12 @@ class ShareFileHelperTest {
     val fd = FileOutputStream(file).fd
     val pfd = mock<ParcelFileDescriptor> { on { fileDescriptor } doReturn fd }
     val resolver = mock<ContentResolver> { on { openFileDescriptor(fileUri, "rw") } doReturn pfd }
-    val ctx = mock<Context> { on { contentResolver } doReturn resolver }
+    val packageManager = mock<PackageManager>()
+    val ctx =
+        mock<Context> {
+          on { contentResolver } doReturn resolver
+          on { this.packageManager } doReturn packageManager
+        }
     val partial = mock<DocumentFile> { on { uri } doReturn fileUri }
     val dir =
         mock<DocumentFile> {
@@ -64,6 +74,12 @@ class ShareFileHelperTest {
     val logs = mockStatic(Log::class.java)
     val uris = mockStatic(Uri::class.java)
     val docs = mockStatic(DocumentFile::class.java)
+    // This regression exercises SAF selection. Model a device with a picker so the TV fork's
+    // no-picker fallback does not bypass the readiness gate under test.
+    val intents =
+        mockConstruction(Intent::class.java) { intent, _ ->
+          whenever(intent.resolveActivity(packageManager)).thenReturn(mock<ComponentName>())
+        }
     try {
       uris.`when`<Uri> { Uri.parse(any()) }.thenAnswer { fakeUri(it.getArgument(0)) }
       // Mirrors DocumentsContract.getTreeDocumentId, which rejects non-tree URIs.
@@ -91,6 +107,7 @@ class ShareFileHelperTest {
       assertEquals(pickedDir, rootAtWake)
       assertTrue("openFileWriter: ${result.exceptionOrNull()}", result.isSuccess)
     } finally {
+      intents.close()
       docs.close()
       uris.close()
       logs.close()
