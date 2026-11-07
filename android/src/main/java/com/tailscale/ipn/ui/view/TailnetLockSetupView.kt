@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tailscale.ipn.R
 import com.tailscale.ipn.ui.Links
+import com.tailscale.ipn.ui.components.Header
 import com.tailscale.ipn.ui.theme.defaultTextColor
 import com.tailscale.ipn.ui.theme.link
 import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
@@ -47,7 +48,7 @@ import com.tailscale.ipn.ui.viewModel.TailnetLockSetupViewModelFactory
 
 @Composable
 fun TailnetLockSetupView(
-    backToSettings: BackNavigation,
+    backToSettings: () -> Unit,
     model: TailnetLockSetupViewModel = viewModel(factory = TailnetLockSetupViewModelFactory()),
 ) {
   val statusItems by model.statusItems.collectAsState()
@@ -101,7 +102,15 @@ fun TailnetLockSetupView(
     return
   }
 
-  Scaffold(topBar = { Header(R.string.tailnet_lock, onBack = backToSettings) }) { innerPadding ->
+  Scaffold(
+      topBar = {
+        Header(
+            R.string.tailnet_lock,
+            onBack = backToSettings,
+            isTv = isAndroidTV(),
+        )
+      }
+  ) { innerPadding ->
     LoadingIndicator.Wrap {
       LazyColumn(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
         item { ExplainerView() }

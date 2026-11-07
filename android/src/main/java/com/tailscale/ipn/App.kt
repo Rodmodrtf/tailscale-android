@@ -28,7 +28,6 @@ import androidx.security.crypto.MasterKey
 import com.tailscale.ipn.mdm.MDMSettings
 import com.tailscale.ipn.mdm.MDMSettingsChangedReceiver
 import com.tailscale.ipn.ui.localapi.Client
-import com.tailscale.ipn.ui.localapi.Request
 import com.tailscale.ipn.ui.model.Ipn
 import com.tailscale.ipn.ui.model.Netmap
 import com.tailscale.ipn.ui.notifier.FavoritesManager
@@ -169,15 +168,16 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
     // Check if a directory URI has already been stored.
     val storedUri = getStoredDirectoryUri()
     val rm = getSystemService(Context.RESTRICTIONS_SERVICE) as RestrictionsManager
+    val restrictions = MDMSettings.resolveRestrictions(this, rm)
     val hardwareAttestation =
-        rm.applicationRestrictions.getBoolean(MDMSettings.KEY_HARDWARE_ATTESTATION, true)
+        restrictions?.getBoolean(MDMSettings.KEY_HARDWARE_ATTESTATION, true) ?: true
 
     // Populate MDM settings before starting Tailscale so that the rsop
     // policy framework reads correct values during its initial synchronous load
     // in newPolicy(). If MDM settings are not populated, rsop caches "not configured"
     // for Hostname and only corrects it after policyReloadMinDelay,
     // at which point the device may have already registered with the wrong hostname.
-    MDMSettings.loadFrom(lazy { getEncryptedPrefs() }, rm)
+    MDMSettings.loadFrom(lazy { getEncryptedPrefs() }, restrictions)
 
     if (storedUri != null && storedUri.toString().startsWith("content://")) {
       startLibtailscale(storedUri.toString(), hardwareAttestation)
@@ -256,7 +256,6 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
   fun startLibtailscale(directFileRoot: String, hardwareAttestation: Boolean) {
     app = Libtailscale.start(this.filesDir.absolutePath, directFileRoot, hardwareAttestation, this)
     ShareFileHelper.init(this, app, directFileRoot, applicationScope)
-    Request.setApp(app)
     Notifier.setApp(app)
     Notifier.start(applicationScope)
   }

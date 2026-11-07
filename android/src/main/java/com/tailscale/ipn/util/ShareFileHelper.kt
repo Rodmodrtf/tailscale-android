@@ -12,7 +12,6 @@ import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
-import com.tailscale.ipn.TaildropDirectoryStore
 import com.tailscale.ipn.ui.notifier.Notifier
 import com.tailscale.ipn.ui.notifier.TaildropNotifier
 import com.tailscale.ipn.ui.util.DirectoryPicker
@@ -44,7 +43,9 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
 
   private var appContext: Context? = null
   private var app: libtailscale.Application? = null
-  private var savedUri: String? = null
+  // Both the readiness gate and every file op read this, so a transfer can't pass the gate and then
+  // resolve against a different root.
+  @Volatile private var savedUri: String? = null
   private var scope: CoroutineScope? = null
 
   @JvmStatic
@@ -67,8 +68,7 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
   @Volatile private var directoryReady: CompletableDeferred<Unit>? = null
 
   fun hasValidTaildropDir(): Boolean {
-    val uri = TaildropDirectoryStore.loadSavedDir()
-    if (uri == null) return false
+    val uri = savedUri?.let(Uri::parse) ?: return false
 
     // Only SAF tree URIs are supported
     if (uri.scheme != "content") {
@@ -144,10 +144,6 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
       }
       directoryReady?.await()
     }
-  }
-
-  fun notifyDirectoryReady() {
-    directoryReady?.takeIf { !it.isCompleted }?.complete(Unit)
   }
 
   // A helper function that opens or creates a SafStream for a given file.
@@ -438,8 +434,10 @@ object ShareFileHelper : libtailscale.ShareFileHelper {
     return InputStreamAdapter(inStream)
   }
 
+  // Publishes the root before waking waiters, so a resumed transfer never sees the old one.
   fun setUri(uri: String) {
     savedUri = uri
+    directoryReady?.takeIf { !it.isCompleted }?.complete(Unit)
   }
 
   private class SeekableOutputStream(

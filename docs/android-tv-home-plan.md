@@ -89,3 +89,11 @@ adb shell am start -n com.tailscale.ipn/com.tailscale.ipn.MainActivity
 - Keep shared state in the existing view models.
 - Keep release automation in GitHub Actions so the home server agent only needs GitHub Release read access.
 - When this becomes more than a home build, switch from debug signing to a private signing key and versioned releases.
+
+## LAN access control
+
+The TV dashboard exposes **Allow LAN access** directly below **Exit node**. The
+same preference is available at the top of the exit-node list, in the main
+D-pad navigation path. Both controls reflect the backend preference and respect
+MDM visibility. Changing it only updates `ExitNodeAllowLANAccess`, preserving the
+selected exit node and other VPN settings.

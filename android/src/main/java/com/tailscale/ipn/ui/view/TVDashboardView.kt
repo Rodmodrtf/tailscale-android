@@ -66,6 +66,7 @@ import com.tailscale.ipn.TVSettings
 import com.tailscale.ipn.mdm.MDMSettings
 import com.tailscale.ipn.ui.model.Ipn
 import com.tailscale.ipn.ui.model.Tailcfg
+import com.tailscale.ipn.ui.util.LoadingIndicator
 import com.tailscale.ipn.ui.viewModel.IpnViewModel.NodeState
 import com.tailscale.ipn.ui.viewModel.MainViewModel
 import java.net.Inet4Address
@@ -96,6 +97,7 @@ fun TVDashboardView(
   val disableToggle by MDMSettings.forceEnabled.flow.collectAsState()
   val isToggleInProgress by viewModel.isToggleInProgress.collectAsState()
   val healthIcon by viewModel.healthIcon.collectAsState()
+  val allowLanAccessMDMDisposition by MDMSettings.exitNodeAllowLANAccess.flow.collectAsState()
   var alwaysConnected by remember { mutableStateOf(TVSettings.startOnBoot(context)) }
   var showAlwaysOnHelp by remember { mutableStateOf(false) }
 
@@ -213,9 +215,7 @@ fun TVDashboardView(
           Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             SettingItem(
                 label = stringResource(R.string.tv_always_connected),
-                trailing = {
-                  Switch(checked = alwaysConnected, onCheckedChange = null)
-                },
+                trailing = { Switch(checked = alwaysConnected, onCheckedChange = null) },
             ) {
               alwaysConnected = !alwaysConnected
               TVSettings.setStartOnBoot(context, alwaysConnected)
@@ -255,6 +255,19 @@ fun TVDashboardView(
                 modifier = Modifier.focusRequester(focusFor("exit-node")),
                 onClick = opening("exit-node", navigation.onNavigateToExitNodes),
             )
+            if (!allowLanAccessMDMDisposition.value.hiddenFromUser) {
+              SettingItem(
+                  label = stringResource(R.string.allow_lan_access),
+                  modifier = Modifier.focusRequester(focusFor("allow-lan-access")),
+                  trailing = {
+                    Switch(checked = prefs?.ExitNodeAllowLANAccess == true, onCheckedChange = null)
+                  },
+              ) {
+                lastFocusKey = "allow-lan-access"
+                LoadingIndicator.start()
+                viewModel.toggleAllowLANAccess { LoadingIndicator.stop() }
+              }
+            }
             SettingItem(
                 label = stringResource(R.string.tv_dashboard_health),
                 value =

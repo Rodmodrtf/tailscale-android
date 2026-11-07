@@ -16,14 +16,12 @@ repositories {
 kotlin { compilerOptions { jvmTarget = JvmTarget.JVM_17 } }
 
 android {
-  val androidApiLevel = providers.gradleProperty("androidApiLevel").get().toInt()
-
   ndkVersion = "23.1.7779620"
-  compileSdk = androidApiLevel
+  compileSdk = providers.gradleProperty("androidCompileSdk").get().toInt()
 
   defaultConfig {
     minSdk = 26
-    targetSdk = androidApiLevel
+    targetSdk = providers.gradleProperty("androidApiLevel").get().toInt()
 
     versionCode = computeVersionCode()
     versionName = getVersionProperty("VERSION_LONG")
@@ -94,6 +92,7 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   implementation(libs.androidx.compose.ui.toolingPreview)
   implementation(libs.androidx.lifecycle.viewmodel.ktx)
+  implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.activity.compose)
   implementation(libs.accompanist.permissions)
   implementation(libs.accompanist.systemuicontroller)

@@ -23,6 +23,7 @@ import androidx.tv.material3.Switch
 import com.tailscale.ipn.R
 import com.tailscale.ipn.mdm.MDMSettings
 import com.tailscale.ipn.mdm.ShowHide
+import com.tailscale.ipn.ui.model.ExitNode
 import com.tailscale.ipn.ui.notifier.Notifier
 import com.tailscale.ipn.ui.util.LoadingIndicator
 import com.tailscale.ipn.ui.viewModel.ExitNodePickerNav
@@ -47,7 +48,7 @@ fun TvExitNodePicker(nav: ExitNodePickerNav, model: ExitNodePickerViewModel) {
 
   val noneLabel = stringResource(R.string.none)
   val none =
-      ExitNodePickerViewModel.ExitNode(
+      ExitNode(
           label = noneLabel,
           online = MutableStateFlow(true),
           selected = !anyActive,
@@ -74,15 +75,6 @@ fun TvExitNodePicker(nav: ExitNodePickerNav, model: ExitNodePickerViewModel) {
               } ?: stringResource(R.string.exit_node_mdm)
             } else current,
         side = {
-          if (!allowLanAccessMDMDisposition.value.hiddenFromUser) {
-            TvRow(
-                headline = stringResource(R.string.allow_lan_access),
-                trailing = { Switch(checked = allowLANAccess, onCheckedChange = null) },
-            ) {
-              LoadingIndicator.start()
-              model.toggleAllowLANAccess { LoadingIndicator.stop() }
-            }
-          }
           if (showRunAsExitNode.value == ShowHide.Show) {
             TvRow(
                 headline = stringResource(R.string.run_as_exit_node),
@@ -115,6 +107,19 @@ fun TvExitNodePicker(nav: ExitNodePickerNav, model: ExitNodePickerViewModel) {
           verticalArrangement = Arrangement.spacedBy(4.dp),
           contentPadding = PaddingValues(vertical = 4.dp),
       ) {
+        if (!allowLanAccessMDMDisposition.value.hiddenFromUser) {
+          item(key = "allowLANAccess") {
+            TvRow(
+                headline = stringResource(R.string.allow_lan_access),
+                supporting =
+                    stringResource(if (allowLANAccess) R.string.enabled else R.string.disabled),
+                trailing = { Switch(checked = allowLANAccess, onCheckedChange = null) },
+            ) {
+              LoadingIndicator.start()
+              model.toggleAllowLANAccess { LoadingIndicator.stop() }
+            }
+          }
+        }
         items(choices, key = { it.id ?: "none" }) { node ->
           val online by node.online.collectAsState()
           TvRow(

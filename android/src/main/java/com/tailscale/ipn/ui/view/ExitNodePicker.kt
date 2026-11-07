@@ -25,9 +25,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tailscale.ipn.R
 import com.tailscale.ipn.mdm.MDMSettings
 import com.tailscale.ipn.mdm.ShowHide
+import com.tailscale.ipn.ui.components.Header
+import com.tailscale.ipn.ui.components.ListItemSwitch
+import com.tailscale.ipn.ui.model.ExitNode
 import com.tailscale.ipn.ui.notifier.Notifier
 import com.tailscale.ipn.ui.theme.disabledListItem
 import com.tailscale.ipn.ui.theme.listItem
+import com.tailscale.ipn.ui.util.AndroidTVUtil
 import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.LoadingIndicator
@@ -48,8 +52,15 @@ fun ExitNodePicker(
     return
   }
   LoadingIndicator.Wrap {
-    Scaffold(topBar = { Header(R.string.choose_exit_node, onBack = nav.onNavigateBackHome) }) {
-        innerPadding ->
+    Scaffold(
+        topBar = {
+          Header(
+              R.string.choose_exit_node,
+              onBack = nav.onNavigateBackHome,
+              isTv = AndroidTVUtil.isAndroidTV(),
+          )
+        }
+    ) { innerPadding ->
       val tailnetExitNodes by model.tailnetExitNodes.collectAsState()
       val mullvadExitNodesByCountryCode by model.mullvadExitNodesByCountryCode.collectAsState()
       val mullvadExitNodeCount by model.mullvadExitNodeCount.collectAsState()
@@ -85,7 +96,7 @@ fun ExitNodePicker(
           } else {
             ExitNodeItem(
                 model,
-                ExitNodePickerViewModel.ExitNode(
+                ExitNode(
                     label = stringResource(R.string.none),
                     online = MutableStateFlow(true),
                     selected = !anyActive,
@@ -122,7 +133,7 @@ fun ExitNodePicker(
           item(key = "allowLANAccess") {
             Lists.SectionDivider()
 
-            Setting.Switch(R.string.allow_lan_access, isOn = allowLANAccess) {
+            ListItemSwitch(R.string.allow_lan_access, isOn = allowLANAccess) {
               LoadingIndicator.start()
               model.toggleAllowLANAccess { LoadingIndicator.stop() }
             }
@@ -136,7 +147,7 @@ fun ExitNodePicker(
 @Composable
 fun ExitNodeItem(
     viewModel: ExitNodePickerViewModel,
-    node: ExitNodePickerViewModel.ExitNode,
+    node: ExitNode,
 ) {
   val online by node.online.collectAsState()
   val isRunningExitNode = viewModel.isRunningExitNode.collectAsState().value

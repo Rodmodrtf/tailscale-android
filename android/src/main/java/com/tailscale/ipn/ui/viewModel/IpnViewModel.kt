@@ -97,8 +97,6 @@ open class IpnViewModel : ViewModel() {
       }
     }
 
-    viewModelScope.launch { loadUserProfiles() }
-
     viewModelScope.launch {
       combine(prefs, netmap, isRunningExitNode) { prefs, netmap, isRunningExitNode ->
             // Handle nullability for prefs and netmap
@@ -293,6 +291,19 @@ open class IpnViewModel : ViewModel() {
   }
 
   // Exit Node Manipulation
+
+  fun toggleAllowLANAccess(callback: (Result<Ipn.Prefs>) -> Unit) {
+    val prefs =
+        Notifier.prefs.value
+            ?: run {
+              callback(Result.failure(Exception("no prefs")))
+              return@toggleAllowLANAccess
+            }
+
+    val prefsOut = Ipn.MaskedPrefs()
+    prefsOut.ExitNodeAllowLANAccess = !prefs.ExitNodeAllowLANAccess
+    Client(viewModelScope).editPrefs(prefsOut, callback)
+  }
 
   fun toggleExitNode() {
     val prefs = prefs.value ?: return

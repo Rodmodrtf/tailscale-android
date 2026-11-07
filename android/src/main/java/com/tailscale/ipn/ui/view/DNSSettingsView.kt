@@ -23,8 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tailscale.ipn.R
 import com.tailscale.ipn.mdm.MDMSettings
+import com.tailscale.ipn.ui.components.Header
+import com.tailscale.ipn.ui.components.ListItemSwitch
 import com.tailscale.ipn.ui.model.DnsType
 import com.tailscale.ipn.ui.notifier.Notifier
+import com.tailscale.ipn.ui.util.AndroidTVUtil
 import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.ClipboardValueView
 import com.tailscale.ipn.ui.util.Lists
@@ -40,7 +43,7 @@ data class ViewableRoute(val name: String, val resolvers: List<DnsType.Resolver>
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DNSSettingsView(
-    backToSettings: BackNavigation,
+    backToSettings: () -> Unit,
     model: DNSSettingsViewModel = viewModel(factory = DNSSettingsViewModelFactory()),
 ) {
   if (isAndroidTV()) {
@@ -57,7 +60,15 @@ fun DNSSettingsView(
   val useCorpDNS = Notifier.prefs.collectAsState().value?.CorpDNS == true
   val dnsSettingsMDMDisposition by MDMSettings.useTailscaleDNSSettings.flow.collectAsState()
 
-  Scaffold(topBar = { Header(R.string.dns_settings, onBack = backToSettings) }) { innerPadding ->
+  Scaffold(
+      topBar = {
+        Header(
+            R.string.dns_settings,
+            onBack = backToSettings,
+            isTv = AndroidTVUtil.isAndroidTV(),
+        )
+      }
+  ) { innerPadding ->
     LoadingIndicator.Wrap {
       LazyColumn(Modifier.padding(innerPadding)) {
         item("state") {
@@ -78,7 +89,7 @@ fun DNSSettingsView(
 
           if (!dnsSettingsMDMDisposition.value.hiddenFromUser) {
             Lists.ItemDivider()
-            Setting.Switch(
+            ListItemSwitch(
                 R.string.use_ts_dns,
                 isOn = useCorpDNS,
                 onToggle = {
